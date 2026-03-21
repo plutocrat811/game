@@ -144,7 +144,7 @@ html,body{
 }
 .inp:focus{border-color:var(--border-gold)}
 .inp::placeholder{color:var(--text3)}
-.inp-inline{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:0}
+.inp-inline{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:0;justify-content:center}
 .inp-inline .inp{flex:1;min-width:180px;max-width:320px}
 
 /* ─── HUD ─── */
