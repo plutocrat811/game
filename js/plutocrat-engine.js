@@ -183,7 +183,10 @@ function settleMonth(){
 
   var totalTax=salaryTaxAmt+passiveTaxAmt;
   var net=collectedIncome+seBonus-paidExp-totalTax;
-  G.cash=Math.max(0,G.cash+net);
+
+  /* FIX: allow cash to go negative so checkCashShortage fires correctly */
+  G.cash=G.cash+net;
+
   G.monthsPlayed++;
   G.blackSwanExpenseSpike=0;
 
@@ -1404,8 +1407,10 @@ window.PG={
   acceptEvent:function(){
     if(G.eventCard&&G.eventCard.fn)G.eventCard.fn(G);
     G.delegDiscount=false;G.opmDiscount=false;
-    G.screen='endmonth';
     G._lastSettleResult=settleMonth();
+    /* FIX: check for cash shortage after settle — route to survival if needed */
+    if(checkCashShortage()){G.screen='survival';render();return;}
+    G.screen='endmonth';
     render();
   },
   acceptSmartResponse:function(){
@@ -1416,8 +1421,10 @@ window.PG={
       resp[tier].damage(G);
     }
     G.delegDiscount=false;G.opmDiscount=false;
-    G.screen='endmonth';
     G._lastSettleResult=settleMonth();
+    /* FIX: check for cash shortage after settle — route to survival if needed */
+    if(checkCashShortage()){G.screen='survival';render();return;}
+    G.screen='endmonth';
     render();
   },
 
