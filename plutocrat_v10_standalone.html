@@ -1,0 +1,1636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>PLUTOCRAT — Billionaire by 20</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+--gold:#c9a84c;--gold-dark:#8a6f2e;--bg:#06060a;--bg2:#0d0d14;--bg3:#12121c;
+--border:#1e1e2e;--border-gold:rgba(201,168,76,0.3);
+--text:#e8e4d8;--text2:#9a9080;--text3:#5a5448;
+--green:#3aaa6a;--red:#cc4444;--blue:#4a8acc;--purple:#9a6acc;--orange:#cc8c2c;
+}
+html,body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-height:100vh;font-size:14px}
+#topbar{background:var(--bg2);border-bottom:1px solid var(--border-gold);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;width:100%}
+#tlogo{font-family:'Cinzel',serif;font-size:16px;font-weight:700;color:var(--gold);letter-spacing:3px}
+#tsub{font-size:9px;letter-spacing:2px;color:var(--text3);text-transform:uppercase;margin-top:2px}
+#tright{font-size:11px;color:var(--text3);text-align:right;line-height:1.6;font-family:'Inter',sans-serif}
+#app{max-width:960px;margin:0 auto}
+#screen{padding:28px 24px;min-height:80vh}
+#modal{display:none;position:fixed;inset:0;z-index:200}
+.ch{font-family:'Cinzel',serif;color:var(--gold);letter-spacing:2px}
+.sec{font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--text3);margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border);margin-top:4px;font-family:'Inter',sans-serif}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:11px 24px;font-family:'Inter',sans-serif;font-size:12px;font-weight:500;letter-spacing:1px;cursor:pointer;border-radius:4px;transition:all 0.18s;text-transform:uppercase;border:1px solid;background:transparent;white-space:nowrap}
+.btn-gold{border-color:var(--gold);color:var(--gold)}.btn-gold:hover{background:var(--gold);color:var(--bg)}
+.btn-green{border-color:var(--green);color:var(--green)}.btn-green:hover{background:var(--green);color:var(--bg)}
+.btn-red{border-color:var(--red);color:var(--red)}.btn-red:hover{background:var(--red);color:#fff}
+.btn-ghost{border-color:var(--border);color:var(--text2)}.btn-ghost:hover{border-color:var(--gold);color:var(--gold)}
+.btn-blue{border-color:var(--blue);color:var(--blue)}.btn-blue:hover{background:var(--blue);color:var(--bg)}
+.btn-purple{border-color:var(--purple);color:var(--purple)}.btn-purple:hover{background:var(--purple);color:var(--bg)}
+.btn-orange{border-color:var(--orange);color:var(--orange)}.btn-orange:hover{background:var(--orange);color:var(--bg)}
+.btn-dim{border-color:var(--border);color:var(--text3);cursor:not-allowed;opacity:0.4}
+.btn:disabled{opacity:0.25;pointer-events:none}
+.brow{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px;align-items:center}
+.inp{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:13px 16px;color:var(--text);font-family:'Inter',sans-serif;font-size:14px;outline:none;transition:border 0.2s}
+.inp:focus{border-color:var(--border-gold)}
+.inp::placeholder{color:var(--text3)}
+.hud{display:grid;gap:6px;margin-bottom:14px}
+.hud5{grid-template-columns:repeat(5,1fr)}.hud4{grid-template-columns:repeat(4,1fr)}.hud3{grid-template-columns:repeat(3,1fr)}.hud2{grid-template-columns:repeat(2,1fr)}
+.hbox{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:10px 8px;text-align:center}
+.hlbl{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--text3);margin-bottom:5px;font-family:'Inter',sans-serif}
+.hval{font-family:'Inter',sans-serif;font-size:15px;color:var(--gold);font-weight:600;line-height:1.2}
+.hval.g{color:var(--green)}.hval.r{color:var(--red)}.hval.b{color:var(--blue)}.hval.p{color:var(--purple)}.hval.o{color:var(--orange)}
+.cal{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:14px}
+.cal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.cal-year{font-family:'Cinzel',serif;font-size:13px;color:var(--gold)}
+.cal-months{display:grid;grid-template-columns:repeat(12,1fr);gap:4px}
+.cal-m{height:6px;border-radius:2px;background:var(--border)}
+.cal-m.done{background:var(--gold-dark)}.cal-m.current{background:var(--gold)}
+.notice{border-radius:5px;padding:11px 14px;font-size:11px;line-height:1.7;margin-bottom:10px;font-family:'Inter',sans-serif}
+.ngold{background:rgba(201,168,76,.06);border:1px solid var(--border-gold);color:var(--gold)}
+.ngreen{background:rgba(58,170,106,.06);border:1px solid rgba(58,170,106,.22);color:var(--green)}
+.nred{background:rgba(204,68,68,.06);border:1px solid rgba(204,68,68,.22);color:var(--red)}
+.nblue{background:rgba(74,138,204,.06);border:1px solid rgba(74,138,204,.22);color:var(--blue)}
+.npurple{background:rgba(154,106,204,.06);border:1px solid rgba(154,106,204,.22);color:var(--purple)}
+.norange{background:rgba(204,140,44,.06);border:1px solid rgba(204,140,44,.3);color:var(--orange)}
+.item-row{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:13px 16px;display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:10px}
+.item-row.done{opacity:0.4;border-style:dashed}
+.item-row.mandatory{border-left:2px solid var(--red)}
+.item-row.overdue{border-left:2px solid var(--orange)}
+.item-label{flex:1}
+.item-name{font-size:13px;color:var(--text);font-weight:500;font-family:'Inter',sans-serif}
+.item-sub{font-size:10px;color:var(--text3);margin-top:2px;font-family:'Inter',sans-serif}
+.item-amt{font-size:14px;font-weight:600;white-space:nowrap;margin-right:10px;font-family:'Inter',sans-serif}
+.item-amt.inc{color:var(--green)}.item-amt.exp{color:var(--red)}
+.sgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px}
+.scard{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px;cursor:pointer;transition:all 0.18s}
+.scard:hover:not(.sdim){border-color:var(--border-gold)}
+.sdim{opacity:0.3;pointer-events:none}
+.sname{font-size:12px;font-weight:600;color:var(--gold);margin-bottom:5px;line-height:1.4;font-family:'Inter',sans-serif}
+.scost{font-size:11px;color:var(--text2);margin-bottom:2px;font-family:'Inter',sans-serif}
+.sinc{font-size:11px;color:var(--green);margin-bottom:2px;font-family:'Inter',sans-serif}
+.sexp{font-size:11px;color:var(--red);margin-bottom:2px;font-family:'Inter',sans-serif}
+.snet{font-size:11px;font-weight:600;margin-bottom:4px;font-family:'Inter',sans-serif}
+.stime{font-size:11px;margin-bottom:4px;font-family:'Inter',sans-serif}
+.stime.f{color:var(--green)}.stime.c{color:var(--red)}
+.sdesc{font-size:10px;color:var(--text3);line-height:1.6;font-family:'Inter',sans-serif}
+.stag{display:inline-block;font-size:8px;padding:2px 6px;border-radius:2px;margin-right:3px;margin-bottom:3px;letter-spacing:1px;font-family:'Inter',sans-serif}
+.tag-stack{background:rgba(58,170,106,.12);color:var(--green);border:1px solid rgba(58,170,106,.25)}
+.tag-del{background:rgba(74,138,204,.12);color:var(--blue);border:1px solid rgba(74,138,204,.25)}
+.tag-status{background:rgba(154,106,204,.12);color:var(--purple);border:1px solid rgba(154,106,204,.25)}
+.tag-liab{background:rgba(204,68,68,.12);color:var(--red);border:1px solid rgba(204,68,68,.25)}
+.tag-cf{background:rgba(58,170,106,.12);color:var(--green);border:1px solid rgba(58,170,106,.25)}
+.tag-ap{background:rgba(201,168,76,.1);color:var(--gold);border:1px solid var(--border-gold)}
+.tag-eq{background:rgba(74,138,204,.12);color:var(--blue);border:1px solid rgba(74,138,204,.25)}
+.pgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px}
+.pcard{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:18px;cursor:pointer;transition:all 0.2s}
+.pcard:hover{border-color:var(--border-gold)}
+.pcard.active{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold-dark)}
+.pbadge{display:inline-block;font-size:9px;letter-spacing:2px;text-transform:uppercase;padding:3px 8px;border-radius:2px;margin-bottom:10px;font-family:'Inter',sans-serif}
+.bwarn{background:rgba(204,68,68,.12);color:var(--red);border:1px solid rgba(204,68,68,.25)}
+.bgold{background:rgba(201,168,76,.1);color:var(--gold);border:1px solid var(--border-gold)}
+.bblue{background:rgba(74,138,204,.1);color:var(--blue);border:1px solid rgba(74,138,204,.25)}
+.pname{font-family:'Cinzel',serif;font-size:15px;color:var(--gold);margin-bottom:3px;letter-spacing:1px}
+.psub{font-size:9px;letter-spacing:1px;color:var(--text3);text-transform:uppercase;margin-bottom:12px;font-family:'Inter',sans-serif}
+.pstat{font-size:12px;color:var(--text2);line-height:2;font-family:'Inter',sans-serif}
+.pstat span{color:var(--text);font-weight:600}
+.pdesc{font-size:11px;color:var(--text3);margin-top:10px;line-height:1.7;border-top:1px solid var(--border);padding-top:10px;font-family:'Inter',sans-serif}
+.choice-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+.choice-card{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px;cursor:pointer;transition:all 0.18s}
+.choice-card:hover{border-color:var(--border-gold)}
+.choice-card.active{border-color:var(--gold)}
+.choice-name{font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px;font-family:'Inter',sans-serif}
+.choice-cost{font-size:12px;color:var(--red);margin-bottom:4px;font-family:'Inter',sans-serif}
+.choice-desc{font-size:10px;color:var(--text3);line-height:1.5;font-family:'Inter',sans-serif}
+.choice-perk{font-size:10px;color:var(--purple);margin-top:4px;font-family:'Inter',sans-serif}
+.alist{display:flex;flex-direction:column;gap:8px;margin-bottom:18px}
+.arow{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.arow.new{border-color:var(--blue)}
+.aname{font-size:13px;color:var(--text);font-weight:500;font-family:'Inter',sans-serif}
+.atype{font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-top:2px;font-family:'Inter',sans-serif}
+.aright{text-align:right;flex-shrink:0}
+.ainc{font-size:12px;color:var(--green);font-weight:600;font-family:'Inter',sans-serif}
+.aexp{font-size:11px;color:var(--red);font-family:'Inter',sans-serif}
+.anet{font-size:12px;font-weight:600;font-family:'Inter',sans-serif}
+.atime{font-size:10px;margin-top:2px;font-family:'Inter',sans-serif}
+.atime.f{color:var(--green)}.atime.c{color:var(--red)}
+.asell{font-size:10px;color:var(--text3);cursor:pointer;text-decoration:underline;margin-top:4px;display:block;font-family:'Inter',sans-serif}
+.asell:hover{color:var(--red)}
+.log{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:12px;font-size:11px;color:var(--text3);max-height:90px;overflow-y:auto;line-height:2;margin-bottom:16px;font-family:'Inter',sans-serif}
+.logline{border-bottom:1px solid var(--border);padding:1px 0}
+.logline:last-child{color:var(--text2);border:none}
+.ecard{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:26px 22px;text-align:center;margin-bottom:18px;position:relative;overflow:hidden}
+.ecard::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.ecard.opportunity::before{background:var(--gold)}
+.ecard.setback::before{background:var(--red)}
+.ecard.lesson::before{background:var(--blue)}
+.ecard.market::before{background:var(--purple)}
+.ecard.blackswan::before{background:var(--red)}
+.etype{font-size:9px;letter-spacing:4px;text-transform:uppercase;margin-bottom:12px;font-family:'Inter',sans-serif}
+.etype.opportunity{color:var(--gold)}.etype.setback{color:var(--red)}.etype.lesson{color:var(--blue)}.etype.market{color:var(--purple)}.etype.blackswan{color:var(--red)}
+.etitle{font-family:'Cinzel',serif;font-size:17px;color:var(--text);margin-bottom:12px;letter-spacing:1px}
+.ebody{font-size:13px;color:var(--text2);line-height:1.9;margin-bottom:16px;font-family:'Inter',sans-serif}
+.eeffect{display:inline-block;font-size:12px;padding:8px 16px;border-radius:4px;font-family:'Inter',sans-serif}
+.epos{background:rgba(58,170,106,.08);color:var(--green);border:1px solid rgba(58,170,106,.25)}
+.eneg{background:rgba(204,68,68,.08);color:var(--red);border:1px solid rgba(204,68,68,.25)}
+.eneu{background:rgba(201,168,76,.08);color:var(--gold);border:1px solid var(--border-gold)}
+.epurp{background:rgba(154,106,204,.08);color:var(--purple);border:1px solid rgba(154,106,204,.25)}
+.deal-card{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:10px;cursor:pointer;transition:all 0.18s}
+.deal-card:hover:not(.deal-locked){border-color:var(--border-gold)}
+.deal-locked{opacity:0.35;pointer-events:none}
+.deal-name{font-family:'Cinzel',serif;font-size:13px;color:var(--gold);margin-bottom:7px;letter-spacing:1px}
+.deal-meta{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.deal-tag{font-size:9px;padding:2px 7px;border-radius:3px;letter-spacing:1px;font-family:'Inter',sans-serif}
+.modal-box{background:var(--bg2);border:1px solid var(--border-gold);border-radius:10px;padding:30px 26px;max-width:75%;width:100%;text-align:center}
+.modal-title{font-family:'Cinzel',serif;font-size:18px;color:var(--gold);margin-bottom:14px;letter-spacing:2px}
+.modal-body{font-size:13px;color:var(--text2);line-height:1.9;margin-bottom:22px;font-family:'Inter',sans-serif}
+.win{text-align:center;padding:48px 0}
+.wt{font-size:9px;letter-spacing:4px;text-transform:uppercase;color:var(--text3);margin-bottom:10px;font-family:'Inter',sans-serif}
+.wc{font-size:56px;margin-bottom:10px}
+.wh{font-family:'Cinzel',serif;font-size:26px;color:var(--gold);letter-spacing:2px;margin-bottom:14px}
+.wb{font-size:13px;color:var(--text2);line-height:2;max-width:500px;margin:0 auto 28px;font-family:'Inter',sans-serif}
+.hero{text-align:center;padding:48px 20px 36px}
+.big{font-family:'Cinzel',serif;font-size:48px;font-weight:700;color:var(--gold);letter-spacing:10px;line-height:1;margin-bottom:6px}
+.tagline{font-size:10px;letter-spacing:4px;color:var(--text3);text-transform:uppercase;margin-bottom:36px;font-family:'Inter',sans-serif}
+.quote{font-size:14px;color:var(--text2);line-height:2.2;max-width:600px;margin:0 auto 40px;font-style:italic;text-align:center;font-family:'Inter',sans-serif}
+.quote em{color:var(--gold);font-style:normal}
+.loading{text-align:center;padding:80px 20px;color:var(--text3);font-size:13px;letter-spacing:3px;font-family:'Inter',sans-serif}
+.loc-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:22px}
+.loc-card{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px;cursor:pointer;text-align:center;transition:all 0.18s}
+.loc-card:hover{border-color:var(--border-gold)}
+.loc-card.active{border-color:var(--gold)}
+.loc-name{font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px;font-family:'Inter',sans-serif}
+.loc-cur{font-size:12px;color:var(--gold);font-family:'Inter',sans-serif}
+.identity-screen{position:fixed;inset:0;background:#000;z-index:300;display:flex;align-items:center;justify-content:center;padding:40px}
+.identity-inner{text-align:center;max-width:560px}
+.identity-pre{font-size:9px;letter-spacing:4px;text-transform:uppercase;color:var(--text3);margin-bottom:24px;font-family:'Inter',sans-serif}
+.identity-headline{font-family:'Cinzel',serif;font-size:28px;color:var(--gold);letter-spacing:2px;margin-bottom:28px;line-height:1.4}
+.identity-body{font-size:14px;color:var(--text2);line-height:2.2;margin-bottom:36px;font-family:'Inter',sans-serif;font-style:italic}
+.identity-body em{color:var(--gold);font-style:normal}
+.temptation-card{background:var(--bg2);border:1px solid var(--orange);border-radius:10px;padding:22px;margin-bottom:14px;text-align:center}
+.temptation-title{font-family:'Cinzel',serif;font-size:16px;color:var(--orange);margin-bottom:10px;letter-spacing:1px}
+.temptation-body{font-size:12px;color:var(--text2);line-height:1.8;margin-bottom:16px;font-family:'Inter',sans-serif}
+.bucket-label{font-size:9px;letter-spacing:3px;text-transform:uppercase;padding:3px 8px;border-radius:2px;display:inline-block;margin-bottom:10px;font-family:'Inter',sans-serif}
+.bucket-cf{background:rgba(58,170,106,.1);color:var(--green);border:1px solid rgba(58,170,106,.3)}
+.bucket-ap{background:rgba(201,168,76,.08);color:var(--gold);border:1px solid var(--border-gold)}
+.bucket-eq{background:rgba(74,138,204,.1);color:var(--blue);border:1px solid rgba(74,138,204,.3)}
+.bucket-dl{background:rgba(154,106,204,.1);color:var(--purple);border:1px solid rgba(154,106,204,.3)}
+@media(max-width:600px){
+.pgrid,.sgrid,.hud4,.hud5,.hud3,.choice-grid,.loc-grid{grid-template-columns:1fr}
+.hud4,.hud5,.hud3{grid-template-columns:repeat(2,1fr)}
+.big{font-size:34px;letter-spacing:6px}
+.deal-meta{flex-direction:column;gap:3px}
+.brow{gap:8px}
+}
+</style>
+</head>
+<body>
+<div id="topbar">
+  <div><div id="tlogo">PLUTOCRAT</div><div id="tsub">Billionaire by 20</div></div>
+  <div id="tright"></div>
+</div>
+<div id="app">
+  <div id="screen" class="loading">Personalizing your experience...</div>
+  <div id="modal"></div>
+</div>
+<script>
+(function(){
+'use strict';
+
+var LDATA={
+  US:{currency:'$',country:'USA',city:'USA',
+    housing:[
+      {id:'shared',name:'Shared apartment',cost:600,desc:'Roommates.',perk:''},
+      {id:'studio',name:'Studio apartment',cost:1200,desc:'Own space.',perk:''},
+      {id:'one_bed',name:'1-bedroom',cost:2000,desc:'Decent area.',perk:''},
+      {id:'two_bed',name:'2-bedroom',cost:3200,desc:'Good area.',perk:'Unlocks professional network'},
+      {id:'luxury_apt',name:'Luxury apartment',cost:6000,desc:'Prime location.',perk:'Unlocks HNI opportunities'},
+      {id:'house',name:'Own house',cost:12000,desc:'Mortgage.',perk:'Unlocks elite events'}
+    ],
+    groceries:[
+      {id:'walmart',name:'Walmart',cost:300,desc:'Budget essentials.'},
+      {id:'kroger',name:'Kroger',cost:500,desc:'Mid-range.'},
+      {id:'wholefoods',name:'Whole Foods',cost:900,desc:'Premium organic.'},
+      {id:'delivery',name:'Premium delivery',cost:1500,desc:'Convenience + premium.'}
+    ]
+  },
+  AU:{currency:'A$',country:'Australia',city:'Australia',
+    housing:[
+      {id:'shared',name:'Share house',cost:700,desc:'Housemates.',perk:''},
+      {id:'studio',name:'Studio apartment',cost:1400,desc:'Own space.',perk:''},
+      {id:'one_bed',name:'1-bedroom',cost:2200,desc:'Good suburb.',perk:''},
+      {id:'two_bed',name:'2-bedroom',cost:3500,desc:'Prime suburb.',perk:'Unlocks professional network'},
+      {id:'luxury_apt',name:'Luxury apartment',cost:7000,desc:'City centre.',perk:'Unlocks HNI opportunities'},
+      {id:'house',name:'House',cost:15000,desc:'Mortgage.',perk:'Unlocks elite events'}
+    ],
+    groceries:[
+      {id:'aldi',name:'Aldi',cost:200,desc:'Budget value.'},
+      {id:'woolworths',name:'Woolworths',cost:400,desc:'Mid-range.'},
+      {id:'harris',name:'Harris Farm',cost:900,desc:'Premium fresh.'}
+    ]
+  },
+  GB:{currency:'£',country:'UK',city:'UK',
+    housing:[
+      {id:'shared',name:'Shared house',cost:500,desc:'Flatmates.',perk:''},
+      {id:'studio',name:'Studio flat',cost:900,desc:'Own space.',perk:''},
+      {id:'one_bed',name:'1-bed flat',cost:1400,desc:'Good borough.',perk:''},
+      {id:'two_bed',name:'2-bed flat',cost:2200,desc:'Prime location.',perk:'Unlocks professional network'},
+      {id:'luxury_apt',name:'Luxury flat',cost:5000,desc:'Prime London.',perk:'Unlocks HNI opportunities'},
+      {id:'house',name:'House',cost:10000,desc:'Statement.',perk:'Unlocks elite events'}
+    ],
+    groceries:[
+      {id:'lidl',name:'Lidl / Aldi',cost:150,desc:'Budget value.'},
+      {id:'tesco',name:'Tesco',cost:280,desc:'Mid-range.'},
+      {id:'waitrose',name:'Waitrose',cost:500,desc:'Premium.'},
+      {id:'harrods',name:'Harrods Food Hall',cost:1200,desc:'Ultra premium.'}
+    ]
+  },
+  SG:{currency:'S$',country:'Singapore',city:'Singapore',
+    housing:[
+      {id:'hdb_shared',name:'HDB shared room',cost:700,desc:'Shared HDB flat.',perk:''},
+      {id:'hdb_flat',name:'HDB flat',cost:2500,desc:'Own HDB unit.',perk:''},
+      {id:'condo',name:'Condominium',cost:5000,desc:'Private condo.',perk:'Unlocks professional network'},
+      {id:'luxury_condo',name:'Luxury condo',cost:10000,desc:'Prime district.',perk:'Unlocks HNI opportunities'},
+      {id:'landed',name:'Landed property',cost:25000,desc:'Statement.',perk:'Unlocks elite events'}
+    ],
+    groceries:[
+      {id:'ntuc',name:'NTUC FairPrice',cost:300,desc:'Everyday essentials.'},
+      {id:'cold_storage',name:'Cold Storage',cost:900,desc:'Premium quality.'},
+      {id:'marketplace',name:'The Market Place',cost:1800,desc:'Gourmet premium.'}
+    ]
+  },
+  AE:{currency:'AED',country:'UAE',city:'UAE',
+    housing:[
+      {id:'shared',name:'Shared accommodation',cost:1500,desc:'Shared villa or flat.',perk:''},
+      {id:'studio',name:'Studio apartment',cost:3000,desc:'Own space.',perk:''},
+      {id:'one_bed',name:'1-bedroom',cost:5000,desc:'Decent community.',perk:''},
+      {id:'two_bed',name:'2-bedroom',cost:8000,desc:'Good area.',perk:'Unlocks professional network'},
+      {id:'luxury_apt',name:'Luxury apartment',cost:18000,desc:'Marina or Downtown.',perk:'Unlocks HNI opportunities'},
+      {id:'villa',name:'Villa',cost:40000,desc:'Statement.',perk:'Unlocks elite events'}
+    ],
+    groceries:[
+      {id:'lulu',name:'LuLu Hypermarket',cost:600,desc:'Value essentials.'},
+      {id:'carrefour',name:'Carrefour',cost:900,desc:'Mid-range.'},
+      {id:'waitrose',name:'Waitrose UAE',cost:1800,desc:'Premium.'},
+      {id:'gourmet',name:'Gourmet Gulf',cost:3500,desc:'Ultra premium.'}
+    ]
+  },
+  IN:{currency:'₹',country:'India',city:'India',
+    housing:[
+      {id:'chawl',name:'Chawl / shared room',cost:4000,desc:'Bare minimum.',perk:''},
+      {id:'budget_flat',name:'Budget 1BHK',cost:8000,desc:'Small flat in outskirts.',perk:''},
+      {id:'mid_flat',name:'Mid-range 2BHK',cost:15000,desc:'Decent locality.',perk:''},
+      {id:'premium_flat',name:'Premium apartment',cost:28000,desc:'Gated society.',perk:'Unlocks upper-middle client events'},
+      {id:'luxury_apt',name:'Luxury high-rise',cost:55000,desc:'Prime location.',perk:'Unlocks HNI opportunities'},
+      {id:'villa',name:'Villa / bungalow',cost:100000,desc:'Statement property.',perk:'Unlocks elite network events'}
+    ],
+    groceries:[
+      {id:'kirana',name:'Local kirana',cost:2000,desc:'Basic necessities only.'},
+      {id:'dmart',name:'D-Mart',cost:4000,desc:'Value for money.'},
+      {id:'reliance',name:'Reliance Fresh',cost:7000,desc:'Better quality.'},
+      {id:'premium',name:"Nature's Basket",cost:14000,desc:'Organic, premium imports.'}
+    ]
+  }
+};
+
+var MANUAL_LOCS=[
+  {code:'US',label:'USA',cur:'$'},
+  {code:'AU',label:'Australia',cur:'A$'},
+  {code:'GB',label:'UK',cur:'£'},
+  {code:'SG',label:'Singapore',cur:'S$'},
+  {code:'AE',label:'UAE',cur:'AED'},
+  {code:'IN',label:'India',cur:'₹'}
+];
+
+var LOC={currency:'₹',country:'India',city:'India',housing:LDATA.IN.housing,groceries:LDATA.IN.groceries};
+
+function applyLoc(code){
+  var d=LDATA[code]||LDATA.IN;
+  LOC.currency=d.currency;LOC.country=d.country;LOC.city=d.city;
+  LOC.housing=d.housing;LOC.groceries=d.groceries;
+}
+
+function detectLocation(cb){
+  var done=false;
+  function finish(code,city){if(done)return;done=true;applyLoc(code||'IN');if(city)LOC.city=city;cb(true);}
+  var t=setTimeout(function(){if(!done){done=true;cb(false);}},4000);
+  if(typeof fetch!=='undefined'){
+    fetch('https://ipapi.co/json/').then(function(r){return r.json();}).then(function(d){clearTimeout(t);finish(d.country_code,d.city);}).catch(tryJSONP);
+  } else {tryJSONP();}
+  function tryJSONP(){
+    if(done)return;
+    var s=document.createElement('script');
+    window._ipCb=function(d){clearTimeout(t);finish(d.country_code,d.city);delete window._ipCb;};
+    s.src='https://ipapi.co/jsonp/?callback=_ipCb';
+    s.onerror=function(){clearTimeout(t);if(!done){done=true;cb(false);}};
+    document.head.appendChild(s);
+  }
+}
+
+// ASSET DEFS — bucket property added: cf=cashflow, ap=appreciation, eq=equity, dl=delegation
+var ASSET_DEFS=[
+  {id:'index_fund',name:'Index fund',bucket:'cf',cost:50000,income:3000,expense:200,time:0,type:'investment',repeatable:true,
+   sellVal:function(a){return Math.round(sc(50000)*(1+(a.monthsOwned||0)*0.005));},
+   desc:'Pure passive. Stack for compounding. Money works 24/7 without you.'},
+  {id:'rental',name:'Rental property',bucket:'cf',cost:200000,income:15000,expense:3500,time:1,type:'real estate',repeatable:true,
+   sellVal:function(a){return Math.round(sc(200000)*(1+(a.monthsOwned||0)*0.008));},
+   desc:'Rental income minus maintenance, tax and insurance. Tenant pays your mortgage.'},
+  {id:'franchise',name:'Franchise unit',bucket:'eq',cost:300000,income:25000,expense:6000,time:0,type:'business',repeatable:true,
+   sellVal:function(a){return Math.round(sc(300000)*(1+(a.monthsOwned||0)*0.004));},
+   desc:'System built. You own a proven machine. Royalty and ops costs deducted monthly.'},
+  {id:'stocks',name:'Stock portfolio',bucket:'ap',cost:80000,income:5500,expense:300,time:0,type:'investment',repeatable:true,
+   sellVal:function(a){return Math.round(sc(80000)*(1+(a.monthsOwned||0)*0.006));},
+   desc:'Dividends plus capital appreciation. Ownership in real businesses.'},
+  {id:'license_ip',name:'License your IP',bucket:'cf',cost:40000,income:8000,expense:500,time:0,type:'passive',repeatable:false,
+   sellVal:function(){return sc(40000);},
+   desc:'Create once. License forever. Royalties minus platform and legal fees.'},
+  {id:'p2p',name:'P2P lending',bucket:'cf',cost:30000,income:2500,expense:100,time:0,type:'investment',repeatable:true,
+   sellVal:function(){return sc(30000);},
+   desc:'Your money lends to borrowers. Interest income minus platform fee.'},
+  {id:'etf',name:'Dividend ETF',bucket:'ap',cost:60000,income:4000,expense:150,time:0,type:'investment',repeatable:true,
+   sellVal:function(a){return Math.round(sc(60000)*(1+(a.monthsOwned||0)*0.005));},
+   desc:'Diversified ownership. Quarterly dividends. Low expense ratio.'},
+  {id:'content',name:'Content channel',bucket:'eq',cost:20000,income:5000,expense:1200,time:2,type:'business',repeatable:false,
+   sellVal:function(){return sc(20000);},
+   desc:'Build once. Audience generates revenue. Ad income minus hosting and tools.'},
+  {id:'hire_mgr',name:'Hire manager / PA',bucket:'dl',cost:60000,income:0,expense:0,time:-3,type:'delegation',repeatable:false,
+   sellVal:function(){return 0;},
+   desc:'Automates all income and expense handling. Frees 3 time units. Reduces tax rate by 5%.'},
+  {id:'build_sop',name:'Build systems (SOP)',bucket:'dl',cost:30000,income:0,expense:0,time:-2,type:'delegation',repeatable:false,
+   sellVal:function(){return 0;},
+   desc:'Document everything. 2 time units freed permanently. Reduces tax rate by 5%.'}
+];
+
+var BUCKET_INFO={
+  cf:{label:'Cashflow',cls:'bucket-cf',tagCls:'tag-cf',desc:'Pays you every month regardless of market conditions. The plutocrat\'s foundation.'},
+  ap:{label:'Appreciation',cls:'bucket-ap',tagCls:'tag-ap',desc:'Grows in value over time. Sell higher than you bought. Wealth compounds silently.'},
+  eq:{label:'Equity',cls:'bucket-eq',tagCls:'tag-eq',desc:'You own a system, not a job. The business runs without your daily presence.'},
+  dl:{label:'Delegation',cls:'bucket-dl',tagCls:'tag-del',desc:'Buy back your time. The wealthy don\'t do — they direct.'}
+};
+
+var LIABILITIES=[
+  {id:'budget_car',name:'Budget car',cost:200000,monthly:8000,type:'lifestyle',desc:'Basic transport.',perk:''},
+  {id:'luxury_car',name:'Luxury car',cost:800000,monthly:25000,type:'status',desc:'Signals status.',perk:'Unlocks HNI client opportunities'},
+  {id:'wardrobe',name:'Premium wardrobe',cost:50000,monthly:5000,type:'status',desc:'Dress for the clients you want.',perk:'Unlocks luxury deal opportunities'},
+  {id:'club_member',name:'Club membership',cost:100000,monthly:8000,type:'status',desc:'Exclusive circles.',perk:'Unlocks elite network events'},
+  {id:'gadgets',name:'Latest gadgets',cost:80000,monthly:3000,type:'lifestyle',desc:'Depreciates fast.',perk:''},
+  {id:'fine_dining',name:'Fine dining habit',cost:0,monthly:15000,type:'status',desc:'Build relationships over meals.',perk:'Unlocks high-value partnerships'}
+];
+
+var TEMPTATION_LIABILITIES=[
+  {id:'budget_car',name:'Budget car',monthly:8000},
+  {id:'gadgets',name:'Latest gadgets',monthly:3000},
+  {id:'fine_dining',name:'Fine dining habit',monthly:15000},
+  {id:'wardrobe',name:'Premium wardrobe',monthly:5000}
+];
+
+var SALARY_TRAP_QUOTES=[
+  'Your employer owns 8 hours of your day. Every single day. Forever — until you decide otherwise.',
+  'A salary is the price your employer pays to own your most productive hours.',
+  'You traded time for money. The problem: you cannot get the time back.',
+  'Your income stopped the moment you stopped. That is not wealth. That is a wage.',
+  'The salary feels safe. That feeling is the trap.',
+  'You are one decision — your employer\'s decision — from zero income.',
+  'Every month you collect a salary without buying assets, the handcuff tightens.',
+  'Comfort is the enemy of freedom. The salary provides comfort. Nothing more.',
+  'Your employer is getting rich from your time. Are you?',
+  'The golden handcuff: paid well enough to stay, not enough to leave.',
+  'Security is an illusion. The only real security is income that does not require your presence.',
+  'You work hard. Your assets should work harder.'
+];
+
+var PROFILES=[
+  {id:'employee',name:'Employee',tag:'Safe but stuck',badge:'bwarn',badgeText:'Trapped',
+   cash:150000,timeUsed:18,salaryBase:45000,taxRate:30,
+   desc:'Stable salary. Zero assets. Your financial life depends on one employer.',
+   unique:'Each month you skip buying assets, salary grows. The golden handcuff tightens.'},
+  {id:'selfemployed',name:'Self-employed',tag:'Golden cage',badge:'bwarn',badgeText:'Hard mode',
+   cash:240000,timeUsed:20,salaryBase:80000,taxRate:25,
+   desc:'High income. No time. No assets. You are the business. You stop — it stops.',
+   unique:'If time used drops below 16, earn bonus income each month. Delegation pays.'},
+  {id:'inheritor',name:'Inheritor',tag:'Head start, no skills',badge:'bgold',badgeText:'Easy start',
+   cash:100000,timeUsed:10,salaryBase:30000,taxRate:20,
+   desc:'One passive stream inherited. Time available. Zero business instinct.',
+   unique:'Starts with a family property generating passive income.'},
+  {id:'dealmaker',name:'Dealmaker',tag:'Highest ceiling',badge:'bblue',badgeText:'Expert',
+   cash:0,timeUsed:8,salaryBase:0,taxRate:15,
+   desc:'Zero cash. Maximum leverage. You make money connecting value — not owning it.',
+   unique:'45+ real-world deal types. Reputation is your balance sheet.'}
+];
+
+var DEALS=[
+  {id:'d1',cat:'Telecom',name:'Airvoice tower lease',desc:'Airvoice needs tower sites. You know landowners. Broker the lease.',repReq:0,time:1,min:20000,max:50000,rate:0.80,prereq:[]},
+  {id:'d2',cat:'Telecom',name:'Conecta distributor deal',desc:'Conecta Mobile expanding. Onboard distributors. Take margin.',repReq:1,time:2,min:35000,max:70000,rate:0.75,prereq:[]},
+  {id:'d3',cat:'Telecom',name:'Signalplus retail franchise',desc:'Source franchisees for Signalplus. Take 20% fee.',repReq:3,time:2,min:60000,max:120000,rate:0.70,prereq:['d1','d2']},
+  {id:'d4',cat:'Real Estate',name:'Property flip (OPM)',desc:'Find undervalued property. Bring investor capital. Take carry.',repReq:0,time:2,min:30000,max:80000,rate:0.75,prereq:[]},
+  {id:'d5',cat:'Real Estate',name:'Commercial lease brokering',desc:'Find tenants for empty spaces. Take 2 months brokerage.',repReq:1,time:1,min:25000,max:60000,rate:0.80,prereq:[]},
+  {id:'d6',cat:'Real Estate',name:'Land banking syndicate',desc:'Pool investors to buy land near expansion zones.',repReq:4,time:3,min:80000,max:200000,rate:0.65,prereq:['d4','d5']},
+  {id:'d7',cat:'Real Estate',name:'REIT structuring',desc:'Structure a real estate investment trust. Requires 3 real estate deals done.',repReq:6,time:4,min:150000,max:350000,rate:0.60,prereq:['d4','d5','d6']},
+  {id:'d8',cat:'Food and Beverage',name:'Burger Palace franchise deal',desc:'Find franchisee operators in new cities. Take 25% of fee.',repReq:2,time:2,min:50000,max:100000,rate:0.75,prereq:[]},
+  {id:'d9',cat:'Food and Beverage',name:'Coffee Crown licensing',desc:'Source licensed kiosk operators. Take broker fee.',repReq:2,time:2,min:40000,max:90000,rate:0.78,prereq:[]},
+  {id:'d10',cat:'Food and Beverage',name:'SpiceRoute cloud kitchen JV',desc:'Structure JV for cloud kitchen partners in metros.',repReq:3,time:3,min:60000,max:140000,rate:0.70,prereq:['d8','d9']},
+  {id:'d11',cat:'Food and Beverage',name:'FarmFresh distribution deal',desc:'Onboard distributors for FarmFresh organic brand.',repReq:1,time:1,min:20000,max:55000,rate:0.80,prereq:[]},
+  {id:'d12',cat:'Technology',name:'SaaSBridge licensing deal',desc:'Close 3 enterprise deals. Take 15% of contract value.',repReq:2,time:2,min:45000,max:110000,rate:0.72,prereq:[]},
+  {id:'d13',cat:'Technology',name:'AppNest acqui-hire',desc:'Find a startup for AppNest to acquire for talent.',repReq:4,time:3,min:100000,max:250000,rate:0.62,prereq:['d12','d14']},
+  {id:'d14',cat:'Technology',name:'CloudStack reseller deal',desc:'Onboard resellers in new markets.',repReq:2,time:2,min:30000,max:80000,rate:0.75,prereq:[]},
+  {id:'d15',cat:'Technology',name:'DataVault angel round',desc:'Syndicate seed round. Requires 2 tech deals done. Take 2% fee plus 15% carry.',repReq:5,time:3,min:120000,max:300000,rate:0.60,prereq:['d12','d14']},
+  {id:'d16',cat:'Manufacturing',name:'SupplyLink OEM deal',desc:'Match SupplyLink with factories. Take broker margin.',repReq:1,time:2,min:30000,max:70000,rate:0.75,prereq:[]},
+  {id:'d17',cat:'Manufacturing',name:'ExportBridge trade deal',desc:'Connect to international buyers. Take 10% commission.',repReq:3,time:2,min:50000,max:120000,rate:0.68,prereq:['d16']},
+  {id:'d18',cat:'Manufacturing',name:'PackRight supply contract',desc:'Structure packaging supply contract. Take finder fee.',repReq:1,time:1,min:20000,max:50000,rate:0.82,prereq:[]},
+  {id:'d19',cat:'Media',name:'ViralVault content syndication',desc:'License content to platforms. Take 20% of licensing fee.',repReq:2,time:2,min:35000,max:80000,rate:0.72,prereq:[]},
+  {id:'d20',cat:'Media',name:'StreamNow distribution deal',desc:'Close OTT distribution deal for indie film.',repReq:3,time:2,min:60000,max:150000,rate:0.65,prereq:['d19']},
+  {id:'d21',cat:'Media',name:'PrintPulse IP licensing',desc:'Structure brand licensing deal for magazine events.',repReq:2,time:1,min:25000,max:65000,rate:0.75,prereq:[]},
+  {id:'d22',cat:'Education',name:'LearnSpark franchise',desc:'Source franchisee operators for coaching centres.',repReq:2,time:2,min:40000,max:90000,rate:0.76,prereq:[]},
+  {id:'d23',cat:'Education',name:'CurriculumX licensing',desc:'License teaching system to schools.',repReq:3,time:2,min:50000,max:100000,rate:0.70,prereq:['d22']},
+  {id:'d24',cat:'Education',name:'SkillBridge corporate deal',desc:'Close corporate training contracts.',repReq:2,time:2,min:45000,max:110000,rate:0.72,prereq:[]},
+  {id:'d25',cat:'Retail',name:'WhiteLabel wholesale deal',desc:'Connect manufacturer to retail brand. Take margin.',repReq:1,time:1,min:20000,max:55000,rate:0.80,prereq:[]},
+  {id:'d26',cat:'Retail',name:'ShelfSpace distribution',desc:'Get new FMCG brand into supermarket chains.',repReq:2,time:2,min:35000,max:80000,rate:0.73,prereq:['d25']},
+  {id:'d27',cat:'Retail',name:'MallPrime retail licensing',desc:'License pop-up spaces. Take 15% of operator revenue.',repReq:3,time:2,min:55000,max:130000,rate:0.68,prereq:['d25','d26']},
+  {id:'d28',cat:'Finance',name:'LoanLink syndication',desc:'Syndicate large MSME loan. Take arrangement fee.',repReq:4,time:3,min:80000,max:200000,rate:0.65,prereq:['d29','d30']},
+  {id:'d29',cat:'Finance',name:'InsureMax distribution deal',desc:'Onboard insurance agents. Take override commission.',repReq:2,time:1,min:25000,max:60000,rate:0.78,prereq:[]},
+  {id:'d30',cat:'Finance',name:'WealthBridge MF distribution',desc:'Onboard mutual fund distributors.',repReq:2,time:2,min:30000,max:70000,rate:0.75,prereq:[]},
+  {id:'d31',cat:'Healthcare',name:'MediChain clinic franchise',desc:'Source operators for diagnostic franchise.',repReq:3,time:2,min:60000,max:130000,rate:0.70,prereq:['d32']},
+  {id:'d32',cat:'Healthcare',name:'PharmaLink distribution',desc:'Onboard distributors in new regions.',repReq:2,time:2,min:35000,max:80000,rate:0.73,prereq:[]},
+  {id:'d33',cat:'Healthcare',name:'MediEquip leasing deal',desc:'Structure equipment leasing deals with hospitals.',repReq:3,time:2,min:50000,max:120000,rate:0.68,prereq:['d32']},
+  {id:'d34',cat:'Hospitality',name:'StayEasy hotel management',desc:'Source hotel owners for management contracts.',repReq:3,time:2,min:55000,max:130000,rate:0.70,prereq:['d35']},
+  {id:'d35',cat:'Hospitality',name:'TasteCraft restaurant franchise',desc:'Source franchisee operators in new cities.',repReq:2,time:2,min:45000,max:100000,rate:0.74,prereq:[]},
+  {id:'d36',cat:'Logistics',name:'LastMile delivery contract',desc:'Close e-commerce contracts for logistics firm.',repReq:2,time:2,min:35000,max:85000,rate:0.75,prereq:[]},
+  {id:'d37',cat:'Logistics',name:'ColdStore warehouse leasing',desc:'Find FMCG brands to lease cold storage.',repReq:1,time:1,min:20000,max:55000,rate:0.80,prereq:[]},
+  {id:'d38',cat:'Energy',name:'SolarGrid installation contract',desc:'Close rooftop solar contracts with factories.',repReq:2,time:2,min:40000,max:100000,rate:0.73,prereq:[]},
+  {id:'d39',cat:'Energy',name:'FuelNet distribution deal',desc:'Onboard transport companies for fuel additive.',repReq:1,time:1,min:20000,max:50000,rate:0.78,prereq:[]},
+  {id:'d40',cat:'Agriculture',name:'GrainBridge commodity trade',desc:'Connect to food processors. Take 3% of trade.',repReq:1,time:1,min:25000,max:60000,rate:0.78,prereq:[]},
+  {id:'d41',cat:'Agriculture',name:'ColdVault storage leasing',desc:'Source farmers needing cold storage.',repReq:1,time:1,min:15000,max:40000,rate:0.82,prereq:[]},
+  {id:'d42',cat:'Agriculture',name:'AgriExport trade deal',desc:'Connect farm exporters to overseas buyers.',repReq:3,time:2,min:60000,max:150000,rate:0.65,prereq:['d40','d41']},
+  {id:'d43',cat:'Investment',name:'Investment syndication',desc:'Pool HNI investors for large deal. Take 2% plus 20% carry.',repReq:5,time:4,min:100000,max:300000,rate:0.60,prereq:['d44']},
+  {id:'d44',cat:'Investment',name:'Business acquisition deal',desc:'Find buyer for struggling business. Take 20% finder fee.',repReq:3,time:3,min:80000,max:200000,rate:0.65,prereq:[]},
+  {id:'d45',cat:'Investment',name:'Equity stake flip',desc:'Take equity instead of fees. Help grow. Flip to next investor.',repReq:6,time:4,min:150000,max:500000,rate:0.55,prereq:['d43','d44']}
+];
+
+var ALL_EVENTS=[
+  {type:'opportunity',title:'Angel deal on the table',body:'An investor offers to fund your next venture for 20% equity. Vision from you, capital from them.',effect:'+80,000 injected',fn:function(){G.cash+=sc(80000);}},
+  {type:'setback',title:'Self-employed trap activated',body:'You fell sick for 2 weeks. Business made zero. No systems. No income.',effect:'-50,000 lost',fn:function(){G.cash=Math.max(0,G.cash-sc(50000));}},
+  {type:'lesson',title:'The time audit revelation',body:'80% of what you do could be done by someone paid far less.',effect:'Delegation 50% off this month',fn:function(){G.delegDiscount=true;}},
+  {type:'opportunity',title:'Investment windfall',body:'One of your assets had an exceptional quarter.',effect:'+30,000 bonus',fn:function(){G.cash+=sc(30000);}},
+  {type:'setback',title:'Lifestyle inflation',body:'Good month. You upgraded. Expenses never came back down.',effect:'+8,000 permanent monthly expense',fn:function(){G.expenses.push({id:'lif_'+G.month+'_'+G.year,label:'Lifestyle upgrade (Y'+G.year+' M'+G.month+')',amount:sc(8000),type:'discretionary',locked:false,mandatory:false});}},
+  {type:'opportunity',title:'Joint venture carry',body:'You connected two parties who needed each other. 15% carry.',effect:'+45,000 carry',fn:function(){G.cash+=sc(45000);}},
+  {type:'setback',title:'Single point of failure',body:'Your biggest client walked. Revenue dropped 60% overnight.',effect:'-40,000',fn:function(){G.cash=Math.max(0,G.cash-sc(40000));}},
+  {type:'opportunity',title:'Delegation breakthrough',body:'Your team handled the entire month without a single call to you.',effect:'-4 time units freed permanently',fn:function(){G.timeUsed=Math.max(0,G.timeUsed-4);}},
+  {type:'lesson',title:'The plutocrat realisation',body:'Net worth is not salary. It is the value of assets producing income without requiring your time.',effect:'Wisdom card',fn:function(){}},
+  {type:'market',title:'Bull market quarter',body:'Everything went up. Patience rewarded again.',effect:'+25,000',fn:function(){G.cash+=sc(25000);}},
+  {type:'market',title:'Market correction',body:'The market dipped. The panicked sold. The patient held.',effect:'-20,000',fn:function(){G.cash=Math.max(0,G.cash-sc(20000));}},
+  {type:'opportunity',title:'Royalty stream unlocked',body:'Something you created once now generates recurring revenue forever.',effect:'+12,000/mo new passive stream',fn:function(){G.assets.push({id:'royalty_'+G.month,name:'Royalty stream',type:'passive',bucket:'cf',income:sc(12000),expense:sc(200),time:0,count:1,newThisMonth:true,monthsOwned:0});recalc();}},
+  {type:'setback',title:'Medical emergency',body:'Unplanned medical costs. No passive income means you felt every unit.',effect:'-45,000',fn:function(){G.cash=Math.max(0,G.cash-sc(45000));}},
+  {type:'lesson',title:"OPM — Other People's Money",body:'The wealthy rarely use their own money. Leverage is the tool.',effect:'Next investment 25% off',fn:function(){G.opmDiscount=true;}},
+  {type:'opportunity',title:'Strategic partnership',body:'A complementary business wants to cross-promote. Zero cost.',effect:'+22,000',fn:function(){G.cash+=sc(22000);}},
+  {type:'setback',title:'Rental vacancy',body:'Your rental property sat empty this month. Zero rent. Maintenance still ran.',effect:'Rental income skipped this month',fn:function(){G.assets.forEach(function(a){if(a.type==='real estate'&&!a.newThisMonth)a.vacantThisMonth=true;});}},
+  {type:'setback',title:'Property damage',body:'Tenant caused significant damage. Emergency repair bill arrived.',effect:'-30,000 unexpected repair',fn:function(){G.cash=Math.max(0,G.cash-sc(30000));}},
+  {type:'setback',title:'Platform demonetisation',body:'Your content channel was demonetised for a month. Zero ad revenue.',effect:'Content channel income skipped this month',fn:function(){G.assets.forEach(function(a){if(a.id==='content')a.vacantThisMonth=true;});}},
+  {type:'market',title:'Startup IPO exit',body:'A startup you backed went public. Early believers rewarded.',effect:'+60,000',fn:function(){G.cash+=sc(60000);}},
+  {type:'lesson',title:'Time is the only non-renewable resource',body:'You can make more money. You cannot make more time.',effect:'1 time unit freed this month',fn:function(){G.timeUsed=Math.max(0,G.timeUsed-1);}}
+];
+
+// BLACK SWAN — one per year, drawn after month 6
+var BLACK_SWAN_EVENTS=[
+  {type:'blackswan',title:'Market crash',body:'Global markets collapsed 40%. Portfolios wiped. Leveraged investors destroyed. Cash holders survived.',effect:'50% of cash wiped',fn:function(){G.cash=Math.floor(G.cash*0.5);addLog('BLACK SWAN: Market crash. 50% of cash lost.');}},
+  {type:'blackswan',title:'Legal dispute',body:'A deal gone wrong. Legal fees and settlement costs arrive without warning. Protect everything.',effect:'-60% of cash in legal costs',fn:function(){G.cash=Math.floor(G.cash*0.4);addLog('BLACK SWAN: Legal dispute. 60% of cash lost.');}},
+  {type:'blackswan',title:'Health crisis',body:'Six months of treatment. Business paused. Income disrupted. The one thing money cannot fully solve.',effect:'-40% of cash + 1 month income suspended',fn:function(){G.cash=Math.floor(G.cash*0.6);G.assets.forEach(function(a){if(!a.newThisMonth)a.vacantThisMonth=true;});addLog('BLACK SWAN: Health crisis. 40% cash lost. All income suspended this month.');}},
+  {type:'blackswan',title:'Regulatory shutdown',body:'A new law shut down your primary revenue stream overnight. No warning. No appeal.',effect:'Largest asset suspended for 2 months',fn:function(){var active=G.assets.filter(function(a){return !a.newThisMonth;});if(active.length){active.sort(function(a,b){return b.income-a.income;});active[0].vacantThisMonth=true;active[0].regulatorySuspended=2;}addLog('BLACK SWAN: Regulatory shutdown. Top asset suspended.');}},
+  {type:'blackswan',title:'Key person dependency',body:'Your most important partner left. Took clients, relationships and half the deal pipeline.',effect:'-35% cash + reputation drops 2',fn:function(){G.cash=Math.floor(G.cash*0.65);G.reputation=Math.max(0,G.reputation-2);addLog('BLACK SWAN: Key person left. Cash and reputation hit.');}},
+  {type:'blackswan',title:'Currency devaluation',body:'The local currency lost 30% of value overnight. Import costs spiked. Asset values dropped.',effect:'All expenses increase 20% this month',fn:function(){G.blackSwanExpenseSpike=0.20;addLog('BLACK SWAN: Currency devaluation. Expenses up 20% this month.');}}
+];
+
+var WINS=[
+  {tier:1,crown:'◈',label:'Tier I',title:'Rat race escaped',desc:'Net passive income covers all expenses. You no longer need to work. Work is now a choice — not a sentence.'},
+  {tier:2,crown:'◉',label:'Tier II',title:'Legacy portfolio built',desc:'Total wealth crossed a major milestone. Generational wealth begins here.'},
+  {tier:3,crown:'✦',label:'Tier III',title:'Leisure class achieved',desc:'Zero time required. Income still flows. Complete freedom from both time anxiety and money anxiety.'},
+  {tier:4,crown:'★',label:'Tier IV',title:'Plutocrat legacy',desc:'Passive income sustained 3x expenses for 3 consecutive months. You have crossed into the leisure class permanently.'}
+];
+
+var G={
+  screen:'title',playerName:'',profile:null,
+  month:1,year:1,cash:0,
+  expenses:[],assets:[],liabilities:[],log:[],
+  eventDeck:[],usedEvents:[],eventCard:null,
+  hasManager:false,housing:null,grocery:null,
+  monthIncomes:null,monthExpenses:null,
+  delegDiscount:false,opmDiscount:false,
+  passiveIncome:0,passiveExpense:0,
+  salaryGrowthBonus:0,monthsPlayed:0,timeUsed:0,
+  reputation:3,dealsDone:0,dealsDoneByCategory:{},dealsDoneById:[],
+  carriedExpenses:[],
+  // NEW v10 state
+  disciplineScore:0,
+  taxRate:30,
+  loanAmount:0,loanMonthlyPayment:0,
+  identityShiftShown:false,
+  lifestyleTemptationPending:false,lifestyleTemptationShown:false,
+  blackSwanDrawnThisYear:false,blackSwanExpenseSpike:0,
+  consolidationPhase:false,consecutivePassiveCoverageMonths:0,
+  inflationFactor:1
+};
+
+var RATES={IN:1,US:0.012,GB:0.0096,AE:0.044,SG:0.016,AU:0.018};
+function getCurCode(){
+  var c=LOC.currency;
+  if(c==='$')return 'US';if(c==='£')return 'GB';
+  if(c==='AED')return 'AE';if(c==='S$')return 'SG';if(c==='A$')return 'AU';
+  return 'IN';
+}
+function sc(n){var r=RATES[getCurCode()]||1;return Math.round(n*r);}
+function fmt(n){return LOC.currency+Math.abs(Math.round(n)).toLocaleString();}
+function fmtS(n){return (n<0?'-':'+')+ LOC.currency+Math.abs(Math.round(n)).toLocaleString();}
+function addLog(msg){G.log.unshift('Y'+G.year+' M'+G.month+': '+msg);if(G.log.length>25)G.log.pop();}
+function recalc(){
+  G.passiveIncome=G.assets.reduce(function(s,a){return a.newThisMonth?s:s+(a.income||0);},0);
+  G.passiveExpense=G.assets.reduce(function(s,a){return a.newThisMonth?s:s+(a.expense||0);},0);
+}
+function totalExp(){
+  var spike=G.blackSwanExpenseSpike||0;
+  var base=G.expenses.reduce(function(s,e){return s+e.amount;},0)
+    +G.liabilities.reduce(function(s,l){return s+l.monthly;},0)
+    +(G.housing?G.housing.cost:0)+(G.grocery?G.grocery.cost:0)
+    +G.passiveExpense+G.loanMonthlyPayment;
+  return Math.round(base*(1+spike)*G.inflationFactor);
+}
+function freeTime(){return Math.max(0,24-G.timeUsed);}
+function timePct(){return Math.round((freeTime()/24)*100);}
+function timeColor(){var f=freeTime();return f<=4?'var(--red)':f>=16?'var(--green)':'var(--gold)';}
+function prof(){return PROFILES.find(function(p){return p.id===G.profile;});}
+function salary(){
+  var p=prof();if(!p)return 0;
+  var base=sc(p.salaryBase)+(G.salaryGrowthBonus||0);
+  if(G.profile==='selfemployed'&&G.timeUsed>=24)return Math.floor(base*0.5);
+  return base;
+}
+function netPassive(){return G.passiveIncome-G.passiveExpense;}
+
+// TAX calculation
+function salaryTax(){
+  var sal=salary();
+  return Math.round(sal*(G.taxRate/100));
+}
+function passiveTax(income){
+  // passive taxed at half the salary tax rate
+  var rate=Math.max(5,Math.round(G.taxRate/2));
+  return Math.round(income*(rate/100));
+}
+
+function dealPrereqMet(deal){
+  if(!deal.prereq||!deal.prereq.length)return true;
+  return deal.prereq.every(function(pid){return G.dealsDoneById.indexOf(pid)>-1;});
+}
+
+function checkLifestyleTemptation(){
+  var exp=totalExp();
+  if(exp<=0)return false;
+  var ratio=G.cash/Math.max(1,exp);
+  if(ratio>=3&&!G.lifestyleTemptationShown){
+    G.lifestyleTemptationPending=true;
+    return true;
+  }
+  return false;
+}
+
+function shuffleDeck(){
+  var d=ALL_EVENTS.slice();
+  for(var i=d.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=d[i];d[i]=d[j];d[j]=t;}
+  G.eventDeck=d;G.usedEvents=[];
+}
+function drawCard(){
+  if(!G.eventDeck.length){G.eventDeck=G.usedEvents.slice();G.usedEvents=[];shuffleDeck();}
+  var c=G.eventDeck.pop();G.usedEvents.push(c);return c;
+}
+function drawBlackSwan(){
+  var idx=Math.floor(Math.random()*BLACK_SWAN_EVENTS.length);
+  return BLACK_SWAN_EVENTS[idx];
+}
+
+function checkWin(){
+  var exp=totalExp();recalc();var mp=G.monthsPlayed;var np=netPassive();
+  // Tier IV — consolidation legacy win
+  if(G.consolidationPhase&&G.consecutivePassiveCoverageMonths>=3&&np>=exp*3)return WINS[3];
+  if(np>0&&np>=exp&&freeTime()===0&&mp>=5)return WINS[2];
+  if(G.cash>=sc(1000000))return WINS[1];
+  if(np>0&&np>=exp&&mp>=3)return WINS[0];
+  return null;
+}
+
+function gel(id){return document.getElementById(id);}
+function showModal(title,body,btns){
+  var bhtml=btns.map(function(b){return '<button class="btn '+b.cls+'" onclick="'+b.fn+'" style="margin:4px">'+b.label+'</button>';}).join('');
+  var m=gel('modal');m.style.display='block';
+  m.innerHTML='<div style="position:fixed;inset:0;background:rgba(0,0,0,0.88);display:flex;align-items:center;justify-content:center;padding:20px;z-index:201" onclick="PG.closeModal()"><div class="modal-box" onclick="event.stopPropagation()"><div class="modal-title">'+title+'</div><div class="modal-body">'+body+'</div><div style="display:flex;flex-wrap:wrap;justify-content:center;gap:8px">'+bhtml+'</div></div></div>';
+}
+function closeModal(){var m=gel('modal');m.style.display='none';m.innerHTML='';}
+
+function buildMonthIncomes(){
+  var sal=salary();var list=[];
+  if(sal>0)list.push({id:'salary',label:G.profile==='selfemployed'?'Business revenue':'Salary',amount:sal,type:'salary',done:false,mandatory:true,isSalary:true});
+  G.assets.forEach(function(a,i){
+    if(!a.newThisMonth&&a.income>0&&!a.vacantThisMonth)
+      list.push({id:'asset_inc_'+i,label:a.name+(a.count>1?' x'+a.count:''),amount:a.income,type:'passive income',done:false,mandatory:false,isPassive:true,assetIdx:i});
+    if(!a.newThisMonth&&a.vacantThisMonth)
+      list.push({id:'asset_vac_'+i,label:a.name+' (vacant / suspended)',amount:0,type:'passive income — skipped',done:true,mandatory:false});
+  });
+  return list;
+}
+
+function buildMonthExpenses(){
+  var list=[];
+  var spike=G.blackSwanExpenseSpike||0;
+  var inf=G.inflationFactor||1;
+  function adj(n){return Math.round(n*(1+spike)*inf);}
+  if(G.housing)list.push({id:'housing',label:'Rent — '+G.housing.name,amount:adj(G.housing.cost),type:'fixed',locked:true,mandatory:true,done:false,skippedMonths:0});
+  if(G.grocery)list.push({id:'grocery',label:'Groceries — '+G.grocery.name,amount:adj(G.grocery.cost),type:'fixed',locked:true,mandatory:true,done:false,skippedMonths:0});
+  if(G.loanMonthlyPayment>0)list.push({id:'loan_interest',label:'Loan interest payment',amount:adj(G.loanMonthlyPayment),type:'debt service',locked:true,mandatory:true,done:false,skippedMonths:0});
+  G.assets.forEach(function(a,i){
+    if(!a.newThisMonth&&a.expense>0)
+      list.push({id:'asset_exp_'+i,label:a.name+' — maintenance / fees',amount:adj(a.expense),type:'asset expense',locked:false,mandatory:false,done:false,skippedMonths:0});
+  });
+  G.expenses.forEach(function(e){list.push(Object.assign({},e,{amount:adj(e.amount),done:false,skippedMonths:0}));});
+  G.liabilities.forEach(function(l){list.push({id:'liab_'+l.id,label:l.name+' (monthly)',amount:adj(l.monthly),type:'liability',locked:false,mandatory:false,done:false,skippedMonths:0});});
+  G.carriedExpenses.forEach(function(ce){
+    list.push({id:ce.id+'_carried',label:ce.label+' (overdue — '+ce.monthsSkipped+' month'+(ce.monthsSkipped>1?'s':'')+' skipped)',amount:ce.amount,type:'overdue',locked:false,mandatory:false,done:false,skippedMonths:ce.monthsSkipped,isCarried:true,originalId:ce.id});
+  });
+  return list;
+}
+
+function allIncomeDone(){if(!G.monthIncomes||!G.monthIncomes.length)return true;return G.monthIncomes.every(function(i){return i.done;});}
+function allMandatoryExpDone(){
+  if(!G.monthExpenses)return false;
+  var m=G.monthExpenses.filter(function(i){return i.mandatory;});
+  if(!m.length)return true;
+  return m.every(function(i){return i.done;});
+}
+function canPass(){return allIncomeDone()&&allMandatoryExpDone();}
+
+function render(){
+  var tr=gel('tright');
+  var setup=['title','setup_loc','setup_name','setup_profile','setup_housing','setup_grocery'];
+  if(setup.indexOf(G.screen)>-1){tr.innerHTML='';}
+  else{recalc();tr.innerHTML=G.playerName+' &nbsp;Y'+G.year+' M'+G.month+'<br>'+fmt(G.cash)+' &nbsp;net passive: '+fmtS(netPassive())+(G.consolidationPhase?' &nbsp;<span style="color:var(--gold)">CONSOLIDATION</span>':'');}
+  var s=gel('screen');s.innerHTML='';
+  var map={
+    title:rTitle,setup_loc:rSetupLoc,setup_name:rName,setup_profile:rProfile,
+    setup_housing:rHousing,setup_grocery:rGrocery,
+    game:rGame,collect:rCollect,pay_expenses:rPayExp,
+    buy:rBuy,deals:rDeals,event:rEvent,endmonth:rEnd,win:rWin,
+    identity_shift:rIdentityShift,consolidation:rConsolidation,borrow:rBorrow
+  };
+  if(map[G.screen])map[G.screen](s);
+}
+
+function rTitle(s){
+  s.innerHTML='<div class="hero">'
+    +'<div class="big">PLUTOCRAT</div>'
+    +'<div class="tagline">by Billionaire by 20</div>'
+    +'<div class="quote">'
+    +'A business that requires your time is <em>just another job</em>.<br>'
+    +'Real wealth is when assets work — <em>and you don\'t have to</em>.<br>'
+    +'The goal is not money. <em>The goal is time.</em>'
+    +'</div>'
+    +'<div style="font-size:11px;color:var(--text3);margin-bottom:32px;line-height:1.8">Location: <span style="color:var(--gold)">'+LOC.country+(LOC.city&&LOC.city!==LOC.country?', '+LOC.city:'')+'</span> &nbsp;&nbsp; Currency: <span style="color:var(--gold)">'+LOC.currency+'</span></div>'
+    +'<div class="brow" style="justify-content:center;gap:12px">'
+    +'<button class="btn btn-gold" onclick="PG.start()">Begin your ascent</button>'
+    +'<button class="btn btn-ghost" onclick="PG.changeLoc()">Change location</button>'
+    +'</div></div>';
+}
+
+function rSetupLoc(s){
+  s.innerHTML='<div class="ch" style="font-size:20px;margin-bottom:8px">Select your location</div>'
+    +'<div style="font-size:12px;color:var(--text3);margin-bottom:22px;line-height:1.6">Choose the country that matches your currency and cost of living.</div>'
+    +'<div class="loc-grid">'
+    +MANUAL_LOCS.map(function(l){
+      return '<div class="loc-card'+(LOC.country===LDATA[l.code].country?' active':'')+'" onclick="PG.setLoc(\''+l.code+'\')">'
+        +'<div class="loc-name">'+l.label+'</div>'
+        +'<div class="loc-cur">'+l.cur+'</div></div>';
+    }).join('')
+    +'</div>'
+    +'<div class="brow">'
+    +'<button class="btn btn-ghost" onclick="PG.fromLoc()">Back</button>'
+    +'<button class="btn btn-gold" onclick="PG.fromLoc()">Confirm location</button>'
+    +'</div>';
+}
+
+function rName(s){
+  s.innerHTML='<div class="ch" style="font-size:20px;margin-bottom:8px">What is your name?</div>'
+    +'<div style="font-size:12px;color:var(--text3);margin-bottom:24px">This is your game. It should feel like your life.</div>'
+    +'<input class="inp" id="ninp" placeholder="Enter your name" maxlength="30" value="'+G.playerName+'" onkeydown="if(event.key===\'Enter\')PG.setName()"/>'
+    +'<div class="brow"><button class="btn btn-gold" onclick="PG.setName()">Continue</button></div>';
+  setTimeout(function(){var i=gel('ninp');if(i)i.focus();},80);
+}
+
+function rProfile(s){
+  var h='<div class="ch" style="font-size:20px;margin-bottom:6px">Choose your profile, '+G.playerName+'</div>'
+    +'<div style="font-size:12px;color:var(--text3);margin-bottom:20px">Your starting point shapes your challenges — not your destiny</div>'
+    +'<div class="pgrid">';
+  PROFILES.forEach(function(p){
+    h+='<div class="pcard'+(G.profile===p.id?' active':'')+'" onclick="PG.pick(\''+p.id+'\')">'
+      +'<div class="pbadge '+p.badge+'">'+p.badgeText+'</div>'
+      +'<div class="pname">'+p.name+'</div><div class="psub">'+p.tag+'</div>'
+      +'<div class="pstat">Cash: <span>'+fmt(sc(p.cash))+'</span></div>'
+      +'<div class="pstat">Time used: <span>'+p.timeUsed+'/24</span></div>'
+      +'<div class="pstat">Salary: <span>'+fmt(sc(p.salaryBase))+'/mo</span></div>'
+      +'<div class="pstat">Tax rate: <span>'+p.taxRate+'%</span></div>'
+      +'<div class="pdesc">'+p.desc+'</div>'
+      +'<div style="font-size:11px;color:var(--blue);margin-top:8px;line-height:1.6">'+p.unique+'</div>'
+      +'</div>';
+  });
+  h+='</div><div class="brow"><button class="btn btn-gold" onclick="PG.confirmProfile()" '+(G.profile?'':'disabled')+'>Lock in profile</button></div>';
+  s.innerHTML=h;
+}
+
+function rHousing(s){
+  var h='<div class="ch" style="font-size:20px;margin-bottom:6px">Where do you live?</div>'
+    +'<div style="font-size:12px;color:var(--text3);margin-bottom:20px">Rent is paid exactly once every month — it cannot be skipped.</div>'
+    +'<div class="choice-grid">';
+  LOC.housing.forEach(function(hh){
+    h+='<div class="choice-card'+(G.housing&&G.housing.id===hh.id?' active':'')+'" onclick="PG.setHousing(\''+hh.id+'\')">'
+      +'<div class="choice-name">'+hh.name+'</div>'
+      +'<div class="choice-cost">'+fmt(hh.cost)+'/month</div>'
+      +'<div class="choice-desc">'+hh.desc+'</div>'
+      +(hh.perk?'<div class="choice-perk">'+hh.perk+'</div>':'')
+      +'</div>';
+  });
+  h+='</div><div class="brow">'
+    +'<button class="btn btn-ghost" onclick="PG.backToProfile()">Back</button>'
+    +'<button class="btn btn-gold" onclick="PG.toGrocery()" '+(G.housing?'':'disabled')+'>Next — groceries</button>'
+    +'</div>';
+  s.innerHTML=h;
+}
+
+function rGrocery(s){
+  var h='<div class="ch" style="font-size:20px;margin-bottom:6px">Where do you buy groceries?</div>'
+    +'<div style="font-size:12px;color:var(--text3);margin-bottom:20px">Groceries are paid exactly once every month — cannot be skipped.</div>'
+    +'<div class="choice-grid">';
+  LOC.groceries.forEach(function(gr){
+    h+='<div class="choice-card'+(G.grocery&&G.grocery.id===gr.id?' active':'')+'" onclick="PG.setGrocery(\''+gr.id+'\')">'
+      +'<div class="choice-name">'+gr.name+'</div>'
+      +'<div class="choice-cost">'+fmt(gr.cost)+'/month</div>'
+      +'<div class="choice-desc">'+gr.desc+'</div>'
+      +'</div>';
+  });
+  h+='</div><div class="brow">'
+    +'<button class="btn btn-ghost" onclick="PG.backToHousing()">Back</button>'
+    +'<button class="btn btn-gold" onclick="PG.startGame()" '+(G.grocery?'':'disabled')+'>Start game</button>'
+    +'</div>';
+  s.innerHTML=h;
+}
+
+// IDENTITY SHIFT SCREEN — fires once when first passive income arrives
+function rIdentityShift(s){
+  s.innerHTML='<div class="identity-screen">'
+    +'<div class="identity-inner">'
+    +'<div class="identity-pre">A moment of clarity</div>'
+    +'<div class="identity-headline">Last night, while you slept,<br>money arrived.</div>'
+    +'<div class="identity-body">'
+    +'You did nothing.<br>'
+    +'You made no calls. You sent no emails. You attended no meetings.<br>'
+    +'And yet — <em>money arrived</em>.<br><br>'
+    +'This is not luck. This is not magic.<br>'
+    +'This is what happens when you stop selling your time<br>'
+    +'and start building <em>systems that work without you</em>.<br><br>'
+    +'Welcome to the other side.'
+    +'</div>'
+    +'<button class="btn btn-gold" onclick="PG.acknowledgeIdentityShift()" style="font-size:13px;padding:14px 36px;letter-spacing:2px">I understand</button>'
+    +'</div></div>';
+}
+
+// CONSOLIDATION SCREEN — fires when Tier I won
+function rConsolidation(s){
+  s.innerHTML='<div style="text-align:center;padding:48px 20px">'
+    +'<div style="font-size:9px;letter-spacing:4px;text-transform:uppercase;color:var(--text3);margin-bottom:16px">Phase shift</div>'
+    +'<div class="ch" style="font-size:30px;margin-bottom:20px">The game changes now.</div>'
+    +'<div style="font-size:14px;color:var(--text2);line-height:2.2;max-width:560px;margin:0 auto 28px;font-style:italic">'
+    +'Getting rich and <em>staying rich</em> are completely different skills.<br>'
+    +'You have escaped the rat race.<br>'
+    +'Now the challenge is to <em>never go back</em>.'
+    +'</div>'
+    +'<div style="background:var(--bg2);border:1px solid var(--border-gold);border-radius:10px;padding:22px;max-width:500px;margin:0 auto 28px;text-align:left">'
+    +'<div style="font-size:11px;color:var(--gold);letter-spacing:2px;text-transform:uppercase;margin-bottom:14px">Consolidation phase — new rules</div>'
+    +'<div style="font-size:12px;color:var(--text2);line-height:2">'
+    +'● Inflation erodes your passive income by 2% per year<br>'
+    +'● Assets occasionally need reinvestment to maintain yield<br>'
+    +'● New win: sustain 3x passive coverage for 3 consecutive months<br>'
+    +'● Black swan events become more severe'
+    +'</div></div>'
+    +'<button class="btn btn-gold" onclick="PG.enterConsolidation()" style="font-size:13px;padding:14px 36px">Enter consolidation phase</button>'
+    +'</div>';
+}
+
+// BORROW SCREEN
+function rBorrow(s){
+  recalc();
+  var np=netPassive();
+  var maxLoan=Math.max(0,np*3);
+  var currentLoan=G.loanAmount;
+  var monthlyInterest=G.loanMonthlyPayment;
+  var h='<div class="ch" style="font-size:20px;margin-bottom:6px">Leverage — borrow capital</div>'
+    +'<div style="font-size:12px;color:var(--text3);margin-bottom:18px;line-height:1.8">The wealthy use debt as a tool — not a burden. Borrow to buy cashflow assets. Never borrow to fund lifestyle.</div>'
+    +'<div class="hud hud3" style="margin-bottom:18px">'
+    +'<div class="hbox"><div class="hlbl">Net passive/mo</div><div class="hval '+(np>0?'g':'r')+'">'+fmtS(np)+'</div></div>'
+    +'<div class="hbox"><div class="hlbl">Max borrow (3x passive)</div><div class="hval">'+fmt(maxLoan)+'</div></div>'
+    +'<div class="hbox"><div class="hlbl">Current loan</div><div class="hval '+(currentLoan>0?'r':'')+'">'+fmt(currentLoan)+'</div></div>'
+    +'</div>';
+
+  if(np<=0){
+    h+='<div class="notice nred">You need positive passive income before you can borrow. Lenders need to see your assets working.</div>';
+  } else if(currentLoan>0){
+    h+='<div class="notice norange">Active loan: '+fmt(currentLoan)+' — Monthly interest: '+fmt(monthlyInterest)+' (mandatory expense)<br>'
+      +'Repaying early saves you interest every month.</div>'
+      +'<div class="brow">'
+      +'<button class="btn btn-green" onclick="PG.repayLoan()">Repay full loan ('+fmt(currentLoan)+')</button>'
+      +'<button class="btn btn-ghost" onclick="PG.goGame()">Back to board</button>'
+      +'</div>';
+  } else {
+    var loan1=Math.round(np*1);var loan2=Math.round(np*2);var loan3=Math.round(np*3);
+    var int1=Math.round(loan1*0.08/12);var int2=Math.round(loan2*0.08/12);var int3=Math.round(loan3*0.08/12);
+    h+='<div class="notice ngold">8% annual interest — mandatory monthly payment. Use borrowed capital to buy assets, not liabilities.</div>'
+      +'<div class="sec">Choose loan size</div>'
+      +'<div class="sgrid">'
+      +'<div class="scard" onclick="PG.takeLoan('+loan1+','+int1+')">'
+        +'<div class="sname">Conservative — 1x passive</div>'
+        +'<div class="scost">Borrow: '+fmt(loan1)+'</div>'
+        +'<div class="sexp">Monthly interest: '+fmt(int1)+'</div>'
+        +'<div class="sdesc">Borrow equal to one month\'s passive income. Low risk. Good for one asset purchase.</div>'
+        +'</div>'
+      +'<div class="scard" onclick="PG.takeLoan('+loan2+','+int2+')">'
+        +'<div class="sname">Moderate — 2x passive</div>'
+        +'<div class="scost">Borrow: '+fmt(loan2)+'</div>'
+        +'<div class="sexp">Monthly interest: '+fmt(int2)+'</div>'
+        +'<div class="sdesc">Borrow twice your monthly passive. Meaningful leverage. Requires asset discipline.</div>'
+        +'</div>'
+      +'<div class="scard" onclick="PG.takeLoan('+loan3+','+int3+')">'
+        +'<div class="sname">Aggressive — 3x passive</div>'
+        +'<div class="scost">Borrow: '+fmt(loan3)+'</div>'
+        +'<div class="sexp">Monthly interest: '+fmt(int3)+'</div>'
+        +'<div class="sdesc">Maximum leverage. Deploy immediately into cashflow assets or the interest destroys you.</div>'
+        +'</div>'
+      +'</div>';
+  }
+  h+='<div class="brow"><button class="btn btn-ghost" onclick="PG.goGame()">Back to board</button></div>';
+  s.innerHTML=h;
+}
+
+function rGame(s){
+  recalc();
+  var ft=freeTime();var exp=totalExp();var win=checkWin();var tpct=timePct();
+  var incDone=allIncomeDone();var expDone=allMandatoryExpDone();var cp=canPass();
+  var np=netPassive();var overdueCount=G.carriedExpenses.length;
+  var taxOwed=salaryTax();
+
+  var h='<div class="ch" style="font-size:11px;letter-spacing:3px;margin-bottom:14px">'+G.playerName+'\'s board — Year '+G.year+', Month '+G.month+(G.consolidationPhase?' &nbsp;<span style="color:var(--orange);font-size:9px">CONSOLIDATION</span>':'')+'</div>';
+
+  h+='<div class="cal"><div class="cal-head"><div class="cal-year">Year '+G.year+'</div><div style="font-size:10px;color:var(--text3)">Month '+G.month+' of 12</div></div><div class="cal-months">';
+  for(var mi=1;mi<=12;mi++){var mc=mi<G.month?'done':mi===G.month?'current':'';h+='<div class="cal-m '+mc+'"></div>';}
+  h+='</div></div>';
+
+  h+='<div class="hud hud4">'
+    +'<div class="hbox"><div class="hlbl">Cash</div><div class="hval">'+fmt(G.cash)+'</div></div>'
+    +'<div class="hbox"><div class="hlbl">Gross passive</div><div class="hval '+(G.passiveIncome>0?'g':'')+'">'+fmt(G.passiveIncome)+'</div></div>'
+    +'<div class="hbox"><div class="hlbl">Net passive</div><div class="hval '+(np>0?'g':'r')+'">'+fmtS(np)+'</div></div>'
+    +'<div class="hbox"><div class="hlbl">Total expenses</div><div class="hval r">'+fmt(exp)+'</div></div>'
+    +'</div>';
+
+  h+='<div class="hud hud4" style="margin-bottom:14px">'
+    +'<div class="hbox"><div class="hlbl">Free time</div><div class="hval" style="color:'+timeColor()+'">'+ft+'/24</div></div>'
+    +'<div class="hbox"><div class="hlbl">Tax rate</div><div class="hval o">'+G.taxRate+'%</div></div>'
+    +'<div class="hbox"><div class="hlbl">Discipline</div><div class="hval '+(G.disciplineScore>=5?'g':G.disciplineScore>=2?'':'r')+'">'+G.disciplineScore+'</div></div>'
+    +(G.loanAmount>0?'<div class="hbox"><div class="hlbl">Loan balance</div><div class="hval r">'+fmt(G.loanAmount)+'</div></div>':'<div class="hbox"><div class="hlbl">Passive coverage</div><div class="hval '+(np>=exp?'g':'r')+'">'+Math.round((np/Math.max(1,exp))*100)+'%</div></div>')
+    +'</div>';
+
+  h+='<div style="margin-bottom:16px">'
+    +'<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-bottom:5px"><span>Time freedom</span><span style="color:'+timeColor()+'">'+tpct+'%</span></div>'
+    +'<div style="background:var(--bg3);border-radius:3px;height:5px;overflow:hidden"><div style="height:5px;border-radius:3px;width:'+tpct+'%;background:'+timeColor()+';transition:width 0.5s"></div></div>'
+    +'</div>';
+
+  if(G.profile==='dealmaker'){
+    h+='<div style="background:var(--bg2);border:1px solid rgba(154,106,204,.3);border-radius:6px;padding:11px 16px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center">'
+      +'<div><div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--purple);margin-bottom:4px">Reputation</div>'
+      +'<div class="hval p" style="font-size:16px">'+G.reputation+'/10</div></div>'
+      +'<div style="font-size:11px;color:var(--text3)">Deals closed: '+G.dealsDone+'</div>'
+      +'</div>';
+  }
+
+  // Notices
+  if(win&&win.tier<=3&&!G.consolidationPhase)h+='<div class="notice ngold">WIN CONDITION MET — '+win.title+' &nbsp;<button class="btn btn-gold" onclick="PG.triggerWin()" style="padding:5px 14px;font-size:10px;margin-left:8px">Claim</button></div>';
+  if(win&&win.tier===4)h+='<div class="notice ngold">LEGACY WIN — '+win.title+' &nbsp;<button class="btn btn-gold" onclick="PG.claimWin()" style="padding:5px 14px;font-size:10px;margin-left:8px">Claim</button></div>';
+  if(np>0&&np>=exp&&!win&&!G.consolidationPhase)h+='<div class="notice ngreen">'+G.playerName+', passive income covers all expenses. You could stop working today.</div>';
+  if(G.consolidationPhase&&G.consecutivePassiveCoverageMonths>0)h+='<div class="notice ngold">Consolidation: '+G.consecutivePassiveCoverageMonths+'/3 months of 3x passive coverage achieved.</div>';
+  if(ft===0)h+='<div class="notice nred">0 free time. Fully trapped. Delegate immediately.</div>';
+  if(ft>0&&ft<=8)h+='<div class="notice nred">Only '+ft+' free time units. Deal-making is restricted. Delegate to free up time.</div>';
+  if(overdueCount>0)h+='<div class="notice norange">'+overdueCount+' overdue expense'+(overdueCount>1?'s':'')+' carried. Pay before they compound further.</div>';
+  if(G.blackSwanExpenseSpike>0)h+='<div class="notice nred">Black swan effect active — all expenses elevated this month.</div>';
+  if(G.consolidationPhase)h+='<div class="notice norange">Inflation factor: '+G.inflationFactor.toFixed(2)+'x — your cost of living grows every year. Keep passive income growing faster.</div>';
+
+  // Lifestyle temptation
+  if(G.lifestyleTemptationPending){
+    h+='<div class="temptation-card">'
+      +'<div class="temptation-title">The temptation is real.</div>'
+      +'<div class="temptation-body">You have '+fmt(G.cash)+' in cash — more than 3x your monthly expenses.<br>Your friends are upgrading. The lifestyle is calling. Everyone will notice.<br><br>This is the moment that separates the wealthy from the formerly wealthy.</div>'
+      +'<div class="brow" style="justify-content:center">'
+      +'<button class="btn btn-green" onclick="PG.resistTemptation()" style="padding:10px 28px">Resist (+1 discipline)</button>'
+      +'<button class="btn btn-red" onclick="PG.indulgeTemptation()" style="padding:10px 28px">Indulge (add liability)</button>'
+      +'</div></div>';
+  }
+
+  h+='<div class="sec">Monthly checklist</div>'
+    +'<div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:16px">'
+    +'<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px"><span style="color:var(--text2)">Income collected</span><span style="color:'+(incDone?'var(--green)':'var(--red)')+'">'+( incDone?'Done ✓':'Pending')+'</span></div>'
+    +'<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px"><span style="color:var(--text2)">Mandatory expenses paid</span><span style="color:'+(expDone?'var(--green)':'var(--red)')+'">'+( expDone?'Done ✓':'Pending')+'</span></div>'
+    +'<div style="display:flex;justify-content:space-between;padding:7px 0;font-size:12px"><span style="color:var(--text2)">Salary tax this month</span><span style="color:var(--orange)">'+fmt(taxOwed)+' ('+G.taxRate+'%)</span></div>'
+    +'</div>';
+
+  if(G.assets.length>0){
+    h+='<div class="sec">Assets ('+G.assets.length+')</div><div class="alist">';
+    G.assets.forEach(function(a,i){
+      var netInc=(a.income||0)-(a.expense||0);
+      var binfo=BUCKET_INFO[a.bucket||'cf'];
+      h+='<div class="arow'+(a.newThisMonth?' new':'')+'"><div style="flex:1"><div class="aname">'+a.name+(a.count>1?' x'+a.count:'')+'</div>'
+        +(a.newThisMonth
+          ?'<div style="font-size:9px;color:var(--blue);margin-top:2px;letter-spacing:1px">OWNED — income starts next month</div>'
+          :'<div class="atype">'+(binfo?'<span class="stag '+binfo.tagCls+'">'+binfo.label+'</span> ':'')+a.type+'</div>')
+        +'</div>'
+        +'<div class="aright">'
+        +(a.newThisMonth
+          ?'<div style="font-size:11px;color:var(--blue)">Activates next month</div>'
+          :'<div class="ainc">+'+fmt(a.income)+'/mo gross</div>'
+           +'<div class="aexp">−'+fmt(a.expense)+'/mo costs</div>'
+           +'<div class="anet" style="color:'+(netInc>0?'var(--green)':'var(--red)')+'">'+fmtS(netInc)+' net</div>'
+        )
+        +'<div class="atime '+(a.time===0?'f':'c')+'">'+( a.time===0?'0 time':'−'+a.time+' units')+'</div>'
+        +(a.newThisMonth?'':'<span class="asell" onclick="PG.sellAsset('+i+')">Sell asset</span>')
+        +'</div></div>';
+    });
+    h+='</div>';
+  } else {
+    h+='<div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:18px;text-align:center;margin-bottom:16px;font-size:12px;color:var(--text3);font-style:italic;line-height:1.9">'+G.playerName+', you own nothing that works while you sleep.</div>';
+  }
+
+  if(G.liabilities.length>0){
+    h+='<div class="sec">Liabilities</div><div class="alist">';
+    G.liabilities.forEach(function(l){
+      h+='<div class="arow"><div><div class="aname">'+l.name+'</div><div class="atype">'+l.type+(l.perk?' · '+l.perk:'')+'</div></div>'
+        +'<div class="aright"><div class="ainc" style="color:var(--red)">−'+fmt(l.monthly)+'/mo</div></div></div>';
+    });
+    h+='</div>';
+  }
+
+  if(G.log.length){
+    h+='<div class="sec">Activity log</div><div class="log">';
+    G.log.slice(0,5).forEach(function(l){h+='<div class="logline">'+l+'</div>';});
+    h+='</div>';
+  }
+
+  // Time-gated actions
+  var dealLocked=ft<1;
+  var buyWarning=ft<=4&&ft>0;
+
+  h+='<div class="sec">Actions</div><div class="brow">'
+    +'<button class="btn btn-green" onclick="PG.goCollect()">Collect income'+(incDone?' ✓':'')+'</button>'
+    +'<button class="btn btn-red" onclick="PG.goPayExp()">Pay expenses'+(expDone?' ✓':'')+(overdueCount>0?' ('+overdueCount+' overdue)':'')+'</button>'
+    +'<button class="btn btn-gold'+(buyWarning?' btn-dim':'')+'" onclick="PG.goBuy()">Buy assets / liabilities</button>'
+    +(np>0?'<button class="btn btn-blue" onclick="PG.goBorrow()">Borrow capital</button>':'')
+    +(G.profile==='dealmaker'
+      ?(dealLocked
+        ?'<button class="btn btn-dim" title="No free time to make deals">Make a deal (no time)</button>'
+        :'<button class="btn btn-purple" onclick="PG.goDeals()">Make a deal</button>')
+      :'')
+    +'</div>'
+    +'<div class="brow">'
+    +(cp
+      ?'<button class="btn btn-ghost" onclick="PG.passMonth()">Pass this month — next month</button>'
+      :'<button class="btn btn-dim" onclick="PG.passBlocked()">Pass this month — next month</button>')
+    +'</div>';
+
+  s.innerHTML=h;
+}
+
+function rCollect(s){
+  if(!G.monthIncomes)G.monthIncomes=buildMonthIncomes();
+  var items=G.monthIncomes;
+  var done=items.filter(function(i){return i.done;}).length;
+  var total=items.reduce(function(s,i){return i.done&&i.amount>0?s+i.amount:s;},0);
+  var trapQuote=SALARY_TRAP_QUOTES[(G.monthsPlayed)%SALARY_TRAP_QUOTES.length];
+
+  var h='<div class="ch" style="font-size:18px;margin-bottom:6px">Collect income</div>'
+    +'<div style="font-size:12px;color:var(--text3);margin-bottom:14px">Year '+G.year+', Month '+G.month+' — each source collected exactly once this month</div>';
+
+  if(G.hasManager)h+='<div class="notice ngreen">Your Manager / PA collected all income. Full report below.</div>';
+  else h+='<div class="notice ngold">Each income source received exactly once per month.</div>';
+
+  h+='<div style="font-size:11px;color:var(--text3);margin-bottom:16px">'+done+' of '+items.length+' handled &nbsp;·&nbsp; Total: <span style="color:var(--green)">'+fmt(total)+'</span></div>';
+
+  items.forEach(function(item,idx){
+    var taxLine='';
+    if(item.isSalary&&!item.done){
+      var t=salaryTax();
+      taxLine='<div style="font-size:10px;color:var(--orange);margin-top:3px">Tax deducted: '+fmt(t)+' ('+G.taxRate+'%)</div>';
+    }
+    if(item.isPassive&&!item.done){
+      var pt=passiveTax(item.amount);
+      taxLine='<div style="font-size:10px;color:var(--orange);margin-top:3px">Passive tax: '+fmt(pt)+' ('+Math.round(G.taxRate/2)+'%)</div>';
+    }
+    h+='<div class="item-row'+(item.done?' done':'')+'"><div class="item-label">'
+      +'<div class="item-name">'+item.label+'</div>'
+      +'<div class="item-sub">'+item.type+'</div>'
+      +taxLine
+      +'</div>'
+      +'<div class="item-amt inc">'+(item.amount>0?'+'+fmt(item.amount):'—')+'</div>'
+      +(item.done
+        ?'<span style="font-size:11px;color:var(--green)">'+(item.amount===0?'Skipped':'Collected ✓')+'</span>'
+        :'<button class="btn btn-green" style="padding:8px 16px;font-size:11px" onclick="PG.collectOne('+idx+')">Collect</button>')
+      +'</div>';
+  });
+
+  // Salary trap notice — only on salary items
+  var hasSalary=items.some(function(i){return i.isSalary;});
+  if(hasSalary){
+    h+='<div class="notice nred" style="margin-top:14px;font-style:italic">"'+trapQuote+'"</div>';
+  }
+
+  h+='<div class="brow"><button class="btn btn-ghost" onclick="PG.goGame()">Back to board</button></div>';
+  s.innerHTML=h;
+}
+
+function rPayExp(s){
+  if(!G.monthExpenses)G.monthExpenses=buildMonthExpenses();
+  var items=G.monthExpenses;
+  var done=items.filter(function(i){return i.done;}).length;
+  var total=items.reduce(function(s,i){return i.done?s+i.amount:s;},0);
+  var overdueItems=items.filter(function(i){return i.isCarried;});
+
+  var h='<div class="ch" style="font-size:18px;margin-bottom:6px">Pay expenses</div>'
+    +'<div style="font-size:12px;color:var(--text3);margin-bottom:14px">Year '+G.year+', Month '+G.month+' — mandatory expenses cannot be skipped</div>';
+
+  if(G.hasManager)h+='<div class="notice ngreen">Your Manager / PA handled all payments. Full report below.</div>';
+  else h+='<div class="notice ngold">Mandatory expenses cannot be skipped. Non-mandatory ones carry over if skipped — with interest.</div>';
+  if(overdueItems.length>0)h+='<div class="notice norange">'+overdueItems.length+' overdue — skipping again adds a 10% late fee next month.</div>';
+
+  h+='<div style="font-size:11px;color:var(--text3);margin-bottom:16px">'+done+' of '+items.length+' handled &nbsp;·&nbsp; Total paid: <span style="color:var(--red)">'+fmt(total)+'</span></div>';
+
+  items.forEach(function(item,idx){
+    var isOverdue=item.isCarried;
+    h+='<div class="item-row'+(item.done?' done':'')+(item.mandatory?' mandatory':isOverdue?' overdue':'')+'"><div class="item-label">'
+      +'<div class="item-name">'+item.label
+      +(item.mandatory?'<span style="font-size:9px;color:var(--red);letter-spacing:1px;text-transform:uppercase;margin-left:6px">mandatory</span>':'')
+      +(isOverdue?'<span style="font-size:9px;color:var(--orange);letter-spacing:1px;text-transform:uppercase;margin-left:6px">overdue</span>':'')
+      +'</div>'
+      +'<div class="item-sub">'+item.type+'</div></div>'
+      +'<div class="item-amt exp">−'+fmt(item.amount)+'</div>';
+    if(item.done)h+='<span style="font-size:11px;color:var(--text3)">Paid ✓</span>';
+    else if(item.mandatory)h+='<button class="btn btn-red" style="padding:8px 16px;font-size:11px" onclick="PG.payOne('+idx+')">Pay</button>';
+    else h+='<div style="display:flex;gap:6px"><button class="btn btn-red" style="padding:8px 14px;font-size:11px" onclick="PG.payOne('+idx+')">Pay</button><button class="btn btn-ghost" style="padding:8px 14px;font-size:11px" onclick="PG.skipOne('+idx+')">Skip</button></div>';
+    h+='</div>';
+  });
+  h+='<div class="brow"><button class="btn btn-ghost" onclick="PG.goGame()">Back to board</button></div>';
+  s.innerHTML=h;
+}
+
+function rBuy(s){
+  recalc();
+  var ft=freeTime();
+  var h='<div class="ch" style="font-size:18px;margin-bottom:6px">Buy assets or liabilities</div>'
+    +'<div style="font-size:12px;color:var(--text3);margin-bottom:14px">You own the asset immediately. Income and expenses start from next month.</div>'
+    +'<div class="hud hud2" style="margin-bottom:14px">'
+    +'<div class="hbox"><div class="hlbl">Available cash</div><div class="hval">'+fmt(G.cash)+'</div></div>'
+    +'<div class="hbox"><div class="hlbl">Net passive/mo</div><div class="hval '+(netPassive()>0?'g':'r')+'">'+fmtS(netPassive())+'</div></div>'
+    +'</div>';
+
+  if(ft<=4&&ft>0)h+='<div class="notice nred">Low free time warning. Prioritise delegation assets first — buy back your time.</div>';
+  if(G.delegDiscount)h+='<div class="notice nblue">Delegation 50% off this month.</div>';
+  if(G.opmDiscount)h+='<div class="notice nblue">OPM card — next investment 25% off.</div>';
+
+  // Group assets by bucket
+  var bucketOrder=['cf','ap','eq','dl'];
+  bucketOrder.forEach(function(bkey){
+    var binfo=BUCKET_INFO[bkey];
+    var bucketAssets=ASSET_DEFS.filter(function(item){return item.bucket===bkey;});
+    h+='<div class="sec" style="margin-top:18px"><span class="bucket-label '+binfo.cls+'">'+binfo.label+'</span> &nbsp;'+binfo.desc+'</div>';
+    h+='<div class="sgrid">';
+    bucketAssets.forEach(function(item){
+      var owned=G.assets.find(function(a){return a.id===item.id&&!a.newThisMonth;});
+      var isMgr=item.id==='hire_mgr';
+      if(isMgr&&G.hasManager){h+='<div class="scard sdim"><div class="sname">'+item.name+' ✓</div><div class="scost">Already hired</div><div class="sdesc">'+item.desc+'</div></div>';return;}
+      if(!item.repeatable&&owned){h+='<div class="scard sdim"><div class="sname">'+item.name+' ✓</div><div class="scost">Owned</div><div class="sdesc">'+item.desc+'</div></div>';return;}
+      var cost=item.cost;
+      if(G.delegDiscount&&item.type==='delegation')cost=Math.floor(cost*0.5);
+      if(G.opmDiscount&&item.type!=='delegation')cost=Math.floor(cost*0.75);
+      var sc_cost=sc(cost);var sc_inc=sc(item.income);var sc_exp=sc(item.expense);var sc_net=sc_inc-sc_exp;
+      var canAfford=G.cash>=sc_cost;
+      h+='<div class="scard'+(canAfford?'':' sdim')+'" onclick="'+(canAfford?'PG.buyAsset(\''+item.id+'\','+sc_cost+','+item.time+','+sc_inc+','+sc_exp+',\''+item.type+'\',\''+item.name.replace(/'/g,"\\'")+'\','+item.repeatable+',\''+item.bucket+'\')':'')+'">'
+        +'<div class="sname">'+item.name+(item.type==='delegation'?'<span class="stag tag-del">delegate</span>':'')+(item.repeatable?'<span class="stag tag-stack">stackable</span>':'')+(owned&&item.repeatable?' x'+(owned.count||1):'')+'</div>'
+        +'<div class="scost">Cost: '+fmt(sc_cost)+(canAfford?'':' — need '+fmt(sc_cost-G.cash)+' more')+'</div>'
+        +(sc_inc>0?'<div class="sinc">+'+fmt(sc_inc)+'/mo income</div>':'')
+        +(sc_exp>0?'<div class="sexp">−'+fmt(sc_exp)+'/mo costs</div>':'')
+        +(sc_inc>0?'<div class="snet" style="color:'+(sc_net>0?'var(--green)':'var(--red)')+'">'+fmtS(sc_net)+' net/mo</div>':'')
+        +'<div class="stime '+(item.time<=0?'f':'c')+'">Time: '+(item.time===0?'0 units':item.time>0?'+'+item.time+' units':item.time+' units')+'</div>'
+        +'<div class="sdesc">'+item.desc+'</div></div>';
+    });
+    h+='</div>';
+  });
+
+  h+='<div class="sec" style="margin-top:18px">Liabilities — things that cost you every month</div><div class="sgrid">';
+  LIABILITIES.forEach(function(item){
+    var owned=G.liabilities.find(function(l){return l.id===item.id;});
+    var sc_cost=sc(item.cost);var sc_mo=sc(item.monthly);
+    var canAfford=sc_cost===0||G.cash>=sc_cost;
+    h+='<div class="scard'+(owned?' sdim':!canAfford?' sdim':'')+'" onclick="'+(owned||!canAfford?'':'PG.buyLiability(\''+item.id+'\','+sc_cost+','+sc_mo+')')+'">'
+      +'<div class="sname">'+item.name+'<span class="stag tag-liab">liability</span>'+(item.type==='status'?'<span class="stag tag-status">status</span>':'')+(owned?' ✓':'')+'</div>'
+      +(sc_cost>0?'<div class="scost">Purchase: '+fmt(sc_cost)+'</div>':'<div class="scost">No upfront cost</div>')
+      +'<div class="sinc" style="color:var(--red)">−'+fmt(sc_mo)+'/mo ongoing</div>'
+      +(item.perk?'<div style="font-size:10px;color:var(--purple);margin-bottom:5px">'+item.perk+'</div>':'')
+      +'<div class="sdesc">'+item.desc+'</div></div>';
+  });
+  h+='</div>';
+
+  h+='<div class="sec">Change housing</div><div class="choice-grid">';
+  LOC.housing.forEach(function(hh){
+    h+='<div class="choice-card'+(G.housing&&G.housing.id===hh.id?' active':'')+'" onclick="PG.changeHousing(\''+hh.id+'\')">'
+      +'<div class="choice-name">'+hh.name+(G.housing&&G.housing.id===hh.id?' (current)':'')+'</div>'
+      +'<div class="choice-cost">'+fmt(hh.cost)+'/mo</div>'
+      +'<div class="choice-desc">'+hh.desc+'</div>'
+      +(hh.perk?'<div class="choice-perk">'+hh.perk+'</div>':'')+'</div>';
+  });
+  h+='</div><div class="sec">Change groceries</div><div class="choice-grid">';
+  LOC.groceries.forEach(function(gr){
+    h+='<div class="choice-card'+(G.grocery&&G.grocery.id===gr.id?' active':'')+'" onclick="PG.changeGrocery(\''+gr.id+'\')">'
+      +'<div class="choice-name">'+gr.name+(G.grocery&&G.grocery.id===gr.id?' (current)':'')+'</div>'
+      +'<div class="choice-cost">'+fmt(gr.cost)+'/mo</div>'
+      +'<div class="choice-desc">'+gr.desc+'</div>'+'</div>';
+  });
+  h+='</div>';
+  h+='<div class="brow"><button class="btn btn-ghost" onclick="PG.goGame()">Back to board</button></div>';
+  s.innerHTML=h;
+}
+
+function rDeals(s){
+  var ft=freeTime();
+  var h='<div class="ch" style="font-size:18px;margin-bottom:6px">Make a deal</div>'
+    +'<div style="font-size:12px;color:var(--text3);margin-bottom:14px">You make money connecting value — not owning it. Reputation is everything.</div>'
+    +'<div class="hud hud3" style="margin-bottom:14px">'
+    +'<div class="hbox"><div class="hlbl">Cash</div><div class="hval">'+fmt(G.cash)+'</div></div>'
+    +'<div class="hbox"><div class="hlbl">Reputation</div><div class="hval p">'+G.reputation+'/10</div></div>'
+    +'<div class="hbox"><div class="hlbl">Free time</div><div class="hval" style="color:'+timeColor()+'">'+ft+'/24</div></div>'
+    +'</div>'
+    +'<div class="notice npurple">Failed deals cost reputation only — not money. Build reputation by closing small deals first. Some deals require prerequisite deals completed.</div>';
+
+  var cats={};
+  DEALS.forEach(function(d){if(!cats[d.cat])cats[d.cat]=[];cats[d.cat].push(d);});
+  Object.keys(cats).forEach(function(cat){
+    h+='<div class="sec">'+cat+'</div>';
+    cats[cat].forEach(function(deal){
+      var repLocked=G.reputation<deal.repReq;
+      var timeLocked=ft<deal.time;
+      var prereqLocked=!dealPrereqMet(deal);
+      var locked=repLocked||timeLocked||prereqLocked;
+      var lockReason=repLocked?'Needs rep '+deal.repReq:timeLocked?'Needs '+deal.time+' free time':prereqLocked?'Complete prerequisites first':'';
+      h+='<div class="deal-card'+(locked?' deal-locked':'')+'" onclick="'+(locked?'':'PG.executeDeal(\''+deal.id+'\')')+'">'
+        +'<div class="deal-name">'+deal.name+'</div>'
+        +'<div class="deal-meta">'
+        +'<span class="deal-tag" style="background:rgba(154,106,204,.12);color:var(--purple);border:1px solid rgba(154,106,204,.25)">Rep: '+deal.repReq+'</span>'
+        +'<span class="deal-tag" style="background:rgba(74,138,204,.12);color:var(--blue);border:1px solid rgba(74,138,204,.25)">Time: '+deal.time+'</span>'
+        +'<span class="deal-tag" style="background:rgba(58,170,106,.12);color:var(--green);border:1px solid rgba(58,170,106,.25)">'+fmt(sc(deal.min))+'–'+fmt(sc(deal.max))+'</span>'
+        +'<span class="deal-tag" style="background:rgba(201,168,76,.08);color:var(--gold);border:1px solid var(--border-gold)">'+Math.round(deal.rate*100)+'% success</span>'
+        +(deal.prereq&&deal.prereq.length?'<span class="deal-tag" style="background:rgba(204,140,44,.1);color:var(--orange);border:1px solid rgba(204,140,44,.3)">pipeline</span>':'')
+        +'</div>'
+        +'<div style="font-size:11px;color:var(--text2);line-height:1.7">'+deal.desc+'</div>'
+        +(locked?'<div style="font-size:10px;color:var(--red);margin-top:5px">'+lockReason+'</div>':'')
+        +'</div>';
+    });
+  });
+  h+='<div class="brow"><button class="btn btn-ghost" onclick="PG.goGame()">Back to board</button></div>';
+  s.innerHTML=h;
+}
+
+function rEvent(s){
+  var e=G.eventCard;
+  var isBlackSwan=e.type==='blackswan';
+  var ecls=e.type==='opportunity'?'epos':e.type==='setback'?'eneg':e.type==='market'?'epurp':isBlackSwan?'eneg':'eneu';
+  s.innerHTML='<div class="ch" style="font-size:11px;letter-spacing:3px;margin-bottom:18px">'+(isBlackSwan?'⚠ BLACK SWAN EVENT':'Event card')+' — Y'+G.year+' M'+G.month+'</div>'
+    +'<div class="ecard '+e.type+'">'
+    +'<div class="etype '+e.type+'">'+(isBlackSwan?'BLACK SWAN':e.type.toUpperCase())+'</div>'
+    +'<div class="etitle">'+e.title+'</div>'
+    +'<div class="ebody">'+e.body+'</div>'
+    +'<div class="eeffect '+ecls+'">'+e.effect+'</div>'
+    +'</div>'
+    +'<div class="brow"><button class="btn btn-gold" onclick="PG.acceptEvent()">Accept outcome</button></div>';
+}
+
+function rEnd(s){
+  recalc();
+  var ft=freeTime();var sal=salary();
+  var seBonus=(G.profile==='selfemployed'&&ft>=8)?sc(20000):0;
+  var exp=totalExp();
+  var collectedIncome=G.monthIncomes?G.monthIncomes.reduce(function(s,i){return i.done&&i.amount>0?s+i.amount:s;},0):sal;
+  var paidExp=G.monthExpenses?G.monthExpenses.reduce(function(s,i){return i.done?s+i.amount:s;},0):exp;
+
+  // Apply taxes
+  var salaryTaxAmt=0;var passiveTaxAmt=0;
+  if(G.monthIncomes){
+    G.monthIncomes.forEach(function(item){
+      if(item.done&&item.amount>0){
+        if(item.isSalary)salaryTaxAmt+=salaryTax();
+        if(item.isPassive)passiveTaxAmt+=passiveTax(item.amount);
+      }
+    });
+  }
+  var totalTax=salaryTaxAmt+passiveTaxAmt;
+  var net=collectedIncome+seBonus-paidExp-totalTax;
+  G.cash=Math.max(0,G.cash+net);
+  G.monthsPlayed++;
+  G.blackSwanExpenseSpike=0;
+
+  if(G.profile==='employee'&&G.assets.filter(function(a){return !a.newThisMonth;}).length===0)
+    G.salaryGrowthBonus=(G.salaryGrowthBonus||0)+sc(5000);
+
+  addLog('Month closed. Income:'+fmt(collectedIncome)+' Tax:'+fmt(totalTax)+' Exp:'+fmt(paidExp)+' Net:'+fmtS(net));
+
+  // Process skipped expenses — carry forward with late fee
+  var newCarried=[];
+  if(G.monthExpenses){
+    G.monthExpenses.forEach(function(item){
+      if(!item.done&&!item.mandatory){
+        var monthsSkipped=(item.skippedMonths||0)+1;
+        var lateFee=monthsSkipped>=2?Math.round(item.amount*0.1):0;
+        var carriedAmt=item.amount+lateFee;
+        var originalId=item.isCarried?item.originalId:item.id;
+        var existing=newCarried.find(function(c){return c.id===originalId;});
+        if(existing){existing.amount+=carriedAmt;existing.monthsSkipped=monthsSkipped;}
+        else{newCarried.push({id:originalId,label:item.isCarried?item.label.split(' (overdue')[0]:item.label,amount:carriedAmt,monthsSkipped:monthsSkipped});}
+        if(lateFee>0)addLog('Late fee: '+item.label+' +'+fmt(lateFee));
+      }
+    });
+  }
+  G.carriedExpenses=newCarried;
+
+  // Lifestyle temptation check
+  checkLifestyleTemptation();
+
+  // Consolidation phase — track consecutive passive coverage
+  var np=netPassive();
+  if(G.consolidationPhase){
+    if(np>=exp*3){G.consecutivePassiveCoverageMonths++;}
+    else{G.consecutivePassiveCoverageMonths=0;}
+    // Inflation grows 2% per year (every 12 months)
+    if(G.month===12){G.inflationFactor=+(G.inflationFactor*1.02).toFixed(4);}
+  }
+
+  // Employee trap salary growth
+  var win=checkWin();
+  var nm=G.month>=12?1:G.month+1;var ny=G.month>=12?G.year+1:G.year;
+
+  var h='<div class="ch" style="font-size:18px;margin-bottom:6px">Month '+G.month+' settled</div>'
+    +'<div style="font-size:12px;color:var(--text3);margin-bottom:18px">Year '+G.year+'</div>'
+    +'<div class="hud hud4" style="margin-bottom:16px">'
+    +'<div class="hbox"><div class="hlbl">Income collected</div><div class="hval g" style="font-size:13px">'+fmt(collectedIncome)+'</div></div>'
+    +'<div class="hbox"><div class="hlbl">Tax paid</div><div class="hval o" style="font-size:13px">'+fmt(totalTax)+'</div></div>'
+    +'<div class="hbox"><div class="hlbl">Expenses paid</div><div class="hval r" style="font-size:13px">'+fmt(paidExp)+'</div></div>'
+    +'<div class="hbox"><div class="hlbl">Net this month</div><div class="hval" style="font-size:13px;color:'+(net>=0?'var(--green)':'var(--red)')+'">'+fmtS(net)+'</div></div>'
+    +'</div>'
+    +'<div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:14px">'
+    +(seBonus>0?'<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px"><span style="color:var(--text2)">SE delegation bonus</span><span style="color:var(--green);font-weight:600">+'+fmt(seBonus)+'</span></div>':'')
+    +'<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px"><span style="color:var(--text2)">Total cash now</span><span style="font-weight:600">'+fmt(G.cash)+'</span></div>'
+    +'<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px"><span style="color:var(--text2)">Net passive/mo</span><span style="color:'+(np>0?'var(--green)':'var(--red)')+';font-weight:600">'+fmtS(np)+'/mo</span></div>'
+    +'<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px"><span style="color:var(--text2)">Tax rate</span><span style="color:var(--orange);font-weight:600">'+G.taxRate+'%</span></div>'
+    +'<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px"><span style="color:var(--text2)">Free time</span><span style="color:'+timeColor()+';font-weight:600">'+ft+'/24</span></div>'
+    +'<div style="display:flex;justify-content:space-between;padding:7px 0;font-size:12px"><span style="color:var(--text2)">Passive coverage</span><span style="color:'+(np>=exp?'var(--green)':'var(--red)')+';font-weight:600">'+Math.round((np/Math.max(1,exp))*100)+'%</span></div>'
+    +'</div>';
+
+  if(newCarried.length>0)h+='<div class="notice norange">'+newCarried.length+' expense'+(newCarried.length>1?'s':'')+' carried to next month. Late fees apply from month 2.</div>';
+  if(G.passiveIncome===0)h+='<div class="notice nred">Zero passive income. If you stopped working — everything stops.</div>';
+  if(ft<=4&&ft>0)h+='<div class="notice nred">Only '+ft+' free time. Delegate now.</div>';
+  if(ft===0)h+='<div class="notice nred">0 free time. Your business owns you completely.</div>';
+  if(win)h+='<div class="notice ngold">WIN UNLOCKED — '+win.title+'</div>';
+  if(G.profile==='employee'&&G.assets.length===0)h+='<div class="notice nblue">Employee trap: Salary grew +'+fmt(sc(5000))+' — but you are still fully dependent on it.</div>';
+  if(totalTax>0)h+='<div class="notice norange">Taxes paid this month: '+fmt(totalTax)+'. Delegation assets reduce your tax rate by 5% each. Passive income is taxed at half your salary rate.</div>';
+
+  h+='<div class="brow">'
+    +(win&&!G.consolidationPhase&&win.tier<=3?'<button class="btn btn-gold" onclick="PG.triggerWin()">Claim victory ✦</button>':'')
+    +(win&&win.tier===4?'<button class="btn btn-gold" onclick="PG.claimWin()">Claim legacy ★</button>':'')
+    +'<button class="btn btn-green" onclick="PG.nextMonth()">Next month — Y'+ny+' M'+nm+'</button>'
+    +'</div>';
+  s.innerHTML=h;
+}
+
+function rWin(s){
+  recalc();var ft=freeTime();var win=checkWin()||WINS[0];var exp=totalExp();
+  s.innerHTML='<div class="win">'
+    +'<div class="wt">'+win.label+' Victory — Y'+G.year+' M'+G.month+'</div>'
+    +'<div class="wc">'+win.crown+'</div>'
+    +'<div class="wh">'+win.title+'</div>'
+    +'<div class="wb">'+win.desc+'</div>'
+    +'<div class="hud hud2" style="max-width:400px;margin:0 auto 24px">'
+    +'<div class="hbox"><div class="hlbl">Final cash</div><div class="hval">'+fmt(G.cash)+'</div></div>'
+    +'<div class="hbox"><div class="hlbl">Net passive/mo</div><div class="hval g">'+fmtS(netPassive())+'</div></div>'
+    +'<div class="hbox"><div class="hlbl">Expenses/mo</div><div class="hval r">'+fmt(exp)+'</div></div>'
+    +'<div class="hbox"><div class="hlbl">Free time</div><div class="hval" style="color:'+timeColor()+'">'+ft+'/24</div></div>'
+    +'</div>'
+    +'<div style="font-size:11px;color:var(--text3);margin-bottom:8px">'+G.assets.length+' assets &nbsp;·&nbsp; '+G.monthsPlayed+' months &nbsp;·&nbsp; '+prof().name+'</div>'
+    +'<div style="font-size:11px;color:var(--gold);margin-bottom:24px">Discipline score: '+G.disciplineScore+' &nbsp;·&nbsp; Tax rate: '+G.taxRate+'%</div>'
+    +'<button class="btn btn-gold" onclick="PG.reset()" style="margin-bottom:22px">Play again</button>'
+    +'<div style="font-size:9px;letter-spacing:3px;color:var(--text3);text-transform:uppercase;margin-top:14px">Billionaire by 20 — Think like a plutocrat</div>'
+    +'</div>';
+}
+
+window.PG={
+  closeModal:closeModal,
+  start:function(){G.screen='setup_name';render();},
+  changeLoc:function(){G.screen='setup_loc';render();},
+  setLoc:function(code){applyLoc(code);render();},
+  fromLoc:function(){G.screen='title';render();},
+  setName:function(){var v=(gel('ninp').value||'').trim();if(!v)return;G.playerName=v;G.screen='setup_profile';render();},
+  pick:function(id){G.profile=id;render();},
+  confirmProfile:function(){
+    if(!G.profile)return;
+    var p=prof();
+    G.cash=sc(p.cash);G.timeUsed=p.timeUsed;G.salaryGrowthBonus=0;G.taxRate=p.taxRate;
+    G.screen='setup_housing';render();
+  },
+  backToProfile:function(){G.screen='setup_profile';render();},
+  backToHousing:function(){G.screen='setup_housing';render();},
+  setHousing:function(id){G.housing=LOC.housing.find(function(h){return h.id===id;});render();},
+  toGrocery:function(){if(!G.housing)return;G.screen='setup_grocery';render();},
+  setGrocery:function(id){G.grocery=LOC.groceries.find(function(g){return g.id===id;});render();},
+  startGame:function(){
+    if(!G.grocery)return;
+    G.expenses=[];G.assets=[];G.liabilities=[];G.carriedExpenses=[];
+    G.dealsDoneByCategory={};G.dealsDoneById=[];
+    G.disciplineScore=0;G.loanAmount=0;G.loanMonthlyPayment=0;
+    G.identityShiftShown=false;G.lifestyleTemptationPending=false;G.lifestyleTemptationShown=false;
+    G.blackSwanDrawnThisYear=false;G.blackSwanExpenseSpike=0;
+    G.consolidationPhase=false;G.consecutivePassiveCoverageMonths=0;G.inflationFactor=1;
+    if(G.profile==='inheritor'){
+      G.assets.push({id:'family_prop_1',name:'Family property',type:'real estate',bucket:'cf',
+        income:sc(8000),expense:sc(1500),time:0,count:1,newThisMonth:false,monthsOwned:0});
+    }
+    shuffleDeck();recalc();
+    addLog('Game started. '+G.playerName+', '+prof().name+', '+LOC.country+'.');
+    G.screen='game';render();
+  },
+  goGame:function(){G.screen='game';render();},
+  goBorrow:function(){G.screen='borrow';render();},
+  takeLoan:function(amount,monthly){
+    if(G.loanAmount>0){showModal('Loan active','Repay your current loan before taking a new one.',[{label:'OK',cls:'btn-ghost',fn:'PG.closeModal();'}]);return;}
+    G.cash+=amount;G.loanAmount=amount;G.loanMonthlyPayment=monthly;
+    addLog('Borrowed: '+fmt(amount)+'. Monthly interest: '+fmt(monthly)+'. Deploy into assets immediately.');
+    G.screen='game';render();
+  },
+  repayLoan:function(){
+    if(G.cash<G.loanAmount){showModal('Insufficient cash','You need '+fmt(G.loanAmount)+' to repay the loan. You have '+fmt(G.cash)+'.',[{label:'OK',cls:'btn-ghost',fn:'PG.closeModal();'}]);return;}
+    G.cash-=G.loanAmount;
+    addLog('Loan repaid: '+fmt(G.loanAmount)+'. No more interest payments.');
+    G.loanAmount=0;G.loanMonthlyPayment=0;
+    G.screen='game';render();
+  },
+  resistTemptation:function(){
+    G.lifestyleTemptationPending=false;G.lifestyleTemptationShown=true;
+    G.disciplineScore++;
+    addLog('Resisted lifestyle temptation. Discipline: '+G.disciplineScore);
+    showModal('Discipline',
+      'You chose not to upgrade.<br><br><span style="color:var(--green);font-size:18px;font-weight:600">+1 Discipline</span><br><br><span style="font-size:12px;color:var(--text3)">The wealthy are not wealthy because they earn more. They are wealthy because they resist more.</span>',
+      [{label:'Continue',cls:'btn-gold',fn:'PG.closeModal();PG.goGame();'}]);
+  },
+  indulgeTemptation:function(){
+    G.lifestyleTemptationPending=false;G.lifestyleTemptationShown=true;
+    // Pick a random temptation liability not already owned
+    var available=TEMPTATION_LIABILITIES.filter(function(t){
+      return !G.liabilities.find(function(l){return l.id===t.id;});
+    });
+    if(available.length){
+      var chosen=available[Math.floor(Math.random()*available.length)];
+      var sc_mo=sc(chosen.monthly);
+      G.liabilities.push({id:chosen.id,name:chosen.name,cost:0,monthly:sc_mo,type:'lifestyle',desc:'Lifestyle indulgence.',perk:''});
+      addLog('Lifestyle indulgence: '+chosen.name+'. +'+fmt(sc_mo)+'/mo permanent expense.');
+      showModal('Indulgence',
+        'You upgraded.<br><br><span style="color:var(--red);font-size:14px">'+chosen.name+' added — '+fmt(sc_mo)+'/mo forever</span><br><br><span style="font-size:12px;color:var(--text3)">Lifestyle inflation is permanent. Your expenses just rose. Your income did not.</span>',
+        [{label:'Accept',cls:'btn-ghost',fn:'PG.closeModal();PG.goGame();'}]);
+    } else {
+      G.disciplineScore++;
+      showModal('Nothing left to buy','You have already indulged in everything available. Congratulations on your expensive taste.<br><br><span style="color:var(--green)">+1 Discipline by default</span>',
+        [{label:'Continue',cls:'btn-gold',fn:'PG.closeModal();PG.goGame();'}]);
+    }
+  },
+  acknowledgeIdentityShift:function(){
+    G.identityShiftShown=true;
+    G.screen='collect';render();
+  },
+  triggerWin:function(){
+    // Tier I win — goes to consolidation phase instead of end
+    G.screen='consolidation';render();
+  },
+  enterConsolidation:function(){
+    G.consolidationPhase=true;
+    G.consecutivePassiveCoverageMonths=0;
+    addLog('Consolidation phase entered. New challenge: sustain 3x passive coverage for 3 months.');
+    G.screen='game';render();
+  },
+  claimWin:function(){G.screen='win';render();},
+  goCollect:function(){
+    if(!G.monthIncomes)G.monthIncomes=buildMonthIncomes();
+    if(G.hasManager)G.monthIncomes.forEach(function(i){
+      if(!i.done){
+        var tax=i.isSalary?salaryTax():i.isPassive?passiveTax(i.amount):0;
+        G.cash+=Math.max(0,i.amount-tax);i.done=true;
+      }
+    });
+    // Identity shift check — first time passive income exists
+    var hasPassiveReady=G.monthIncomes.some(function(i){return i.isPassive&&i.amount>0;});
+    if(hasPassiveReady&&!G.identityShiftShown){
+      G.screen='identity_shift';render();return;
+    }
+    G.screen='collect';render();
+  },
+  goPayExp:function(){
+    if(!G.monthExpenses)G.monthExpenses=buildMonthExpenses();
+    if(G.hasManager)G.monthExpenses.forEach(function(i){if(!i.done){G.cash=Math.max(0,G.cash-i.amount);i.done=true;}});
+    G.screen='pay_expenses';render();
+  },
+  goBuy:function(){G.screen='buy';render();},
+  goDeals:function(){
+    if(freeTime()<1){showModal('No free time','You have no free time to research or execute deals. Delegate tasks first to free up time.',[{label:'OK',cls:'btn-ghost',fn:'PG.closeModal();'}]);return;}
+    G.screen='deals';render();
+  },
+  collectOne:function(idx){
+    var item=G.monthIncomes&&G.monthIncomes[idx];
+    if(!item||item.done)return;
+    item.done=true;
+    var tax=item.isSalary?salaryTax():item.isPassive?passiveTax(item.amount):0;
+    var net=Math.max(0,item.amount-tax);
+    if(item.amount>0){G.cash+=net;addLog('Collected: '+item.label+' +'+fmt(net)+' (after '+fmt(tax)+' tax)');}
+    render();
+  },
+  payOne:function(idx){
+    var item=G.monthExpenses&&G.monthExpenses[idx];
+    if(!item||item.done)return;
+    item.done=true;G.cash=Math.max(0,G.cash-item.amount);
+    if(item.isCarried){G.carriedExpenses=G.carriedExpenses.filter(function(c){return c.id!==item.originalId;});}
+    addLog('Paid: '+item.label+' −'+fmt(item.amount));render();
+  },
+  skipOne:function(idx){
+    var item=G.monthExpenses&&G.monthExpenses[idx];
+    if(!item||item.done||item.mandatory)return;
+    item.done=true;item.skippedMonths=(item.skippedMonths||0)+1;
+    addLog('Skipped: '+item.label+' — carries to next month.');render();
+  },
+  buyAsset:function(id,cost,time,income,expense,type,name,repeatable,bucket){
+    if(G.cash<cost)return;
+    var owned=G.assets.find(function(a){return a.id===id&&!a.newThisMonth;});
+    if(!repeatable&&owned)return;
+    G.cash-=cost;
+    if(id==='hire_mgr'){
+      G.hasManager=true;G.timeUsed=Math.max(0,G.timeUsed+time);
+      G.taxRate=Math.max(5,G.taxRate-5);
+      addLog('Manager/PA hired. Automation enabled. Tax rate now '+G.taxRate+'%.');
+    } else if(type==='delegation'){
+      G.timeUsed=Math.max(0,G.timeUsed+time);
+      G.taxRate=Math.max(5,G.taxRate-5);
+      addLog('Delegated: '+name+'. Time freed. Tax rate now '+G.taxRate+'%.');
+    } else if(owned&&repeatable){
+      G.assets.push({id:id+'_stack_'+G.month+'_'+G.year,name:name,type:type,bucket:bucket||'cf',income:income,expense:expense,time:time||0,count:1,newThisMonth:true,monthsOwned:0,stackParent:id});
+      addLog('Stacked: '+name+'. +'+fmt(income-expense)+' net/mo from next month.');
+    } else {
+      G.assets.push({id:id,name:name,type:type,bucket:bucket||'cf',income:income,expense:expense,time:time||0,count:1,newThisMonth:true,monthsOwned:0});
+      addLog('Acquired: '+name+'. Owned now. Income starts next month.');
+    }
+    if(G.opmDiscount)G.opmDiscount=false;
+    G.delegDiscount=false;recalc();render();
+  },
+  sellAsset:function(idx){
+    var a=G.assets[idx];if(!a||a.newThisMonth)return;
+    var def=ASSET_DEFS.find(function(d){return a.id===d.id||a.id.indexOf(d.id)===0;});
+    var sellPrice=def?def.sellVal(a):sc(50000);
+    showModal('Sell '+a.name,
+      'Current market value: <span style="color:var(--gold);font-size:16px;font-weight:600">'+fmt(sellPrice)+'</span><br><br>'
+      +'You will receive '+fmt(sellPrice)+' in cash.<br>Monthly income of '+fmt(a.income)+'/mo will stop.',
+      [{label:'Confirm sale',cls:'btn-red',fn:'PG.confirmSell('+idx+','+sellPrice+');PG.closeModal();'},
+       {label:'Keep asset',cls:'btn-ghost',fn:'PG.closeModal();'}]);
+  },
+  confirmSell:function(idx,price){
+    var a=G.assets[idx];if(!a)return;
+    G.cash+=price;addLog('Sold: '+a.name+'. Received '+fmt(price)+'.');
+    G.assets.splice(idx,1);recalc();render();
+  },
+  buyLiability:function(id,cost,monthly){
+    var item=LIABILITIES.find(function(x){return x.id===id;});if(!item)return;
+    if(cost>0&&G.cash<cost)return;
+    if(G.liabilities.find(function(l){return l.id===id;}))return;
+    if(cost>0)G.cash-=cost;
+    G.liabilities.push(Object.assign({},item,{cost:cost,monthly:monthly}));
+    addLog('Liability: '+item.name+'.'+(item.perk?' Unlocks: '+item.perk:''));render();
+  },
+  changeHousing:function(id){
+    G.housing=LOC.housing.find(function(h){return h.id===id;});
+    if(G.monthExpenses){var he=G.monthExpenses.find(function(e){return e.id==='housing';});if(he){he.label='Rent — '+G.housing.name;he.amount=G.housing.cost;he.done=false;}}
+    addLog('Housing: '+G.housing.name+'. '+fmt(G.housing.cost)+'/mo.');render();
+  },
+  changeGrocery:function(id){
+    G.grocery=LOC.groceries.find(function(g){return g.id===id;});
+    if(G.monthExpenses){var ge=G.monthExpenses.find(function(e){return e.id==='grocery';});if(ge){ge.label='Groceries — '+G.grocery.name;ge.amount=G.grocery.cost;ge.done=false;}}
+    addLog('Groceries: '+G.grocery.name+'. '+fmt(G.grocery.cost)+'/mo.');render();
+  },
+  executeDeal:function(id){
+    var deal=DEALS.find(function(d){return d.id===id;});if(!deal)return;
+    if(G.reputation<deal.repReq||freeTime()<deal.time||!dealPrereqMet(deal))return;
+    G.timeUsed=Math.min(24,G.timeUsed+deal.time);
+    var success=Math.random()<deal.rate;
+    if(success){
+      var earn=sc(deal.min)+Math.floor(Math.random()*sc(deal.max-deal.min));
+      G.cash+=earn;G.reputation=Math.min(10,G.reputation+1);G.dealsDone++;
+      if(!G.dealsDoneByCategory[deal.cat])G.dealsDoneByCategory[deal.cat]=0;
+      G.dealsDoneByCategory[deal.cat]++;
+      G.dealsDoneById.push(deal.id);
+      addLog('Deal: '+deal.name+'. +'+fmt(earn)+'. Rep: '+G.reputation+'/10.');
+      showModal('Deal closed',deal.name+'<br><br><span style="color:var(--green);font-size:20px;font-weight:600">+'+fmt(earn)+'</span><br><span style="font-size:11px;color:var(--text3)">Reputation: '+G.reputation+'/10 &nbsp;·&nbsp; Deals: '+G.dealsDone+'</span>',
+        [{label:'Continue',cls:'btn-gold',fn:'PG.closeModal();PG.goGame();'}]);
+    } else {
+      G.reputation=Math.max(0,G.reputation-1);
+      addLog('Deal failed: '+deal.name+'. Rep: '+G.reputation+'/10.');
+      showModal('Deal failed',deal.name+'<br><br><span style="color:var(--red);font-size:13px">Reputation dropped to '+G.reputation+'/10</span><br><span style="font-size:11px;color:var(--text3)">No money lost. Only reputation.</span>',
+        [{label:'Accept',cls:'btn-ghost',fn:'PG.closeModal();PG.goGame();'}]);
+    }
+  },
+  passBlocked:function(){
+    var mi=!allIncomeDone();var me=!allMandatoryExpDone();
+    var msg='Before passing this month:<br><br>';
+    if(mi)msg+='<span style="color:var(--red)">● Income not fully collected</span><br>';
+    if(me)msg+='<span style="color:var(--red)">● Mandatory expenses not paid</span><br>';
+    var btns=[];
+    if(mi)btns.push({label:'Collect income',cls:'btn-green',fn:'PG.closeModal();PG.goCollect();'});
+    if(me)btns.push({label:'Pay expenses',cls:'btn-red',fn:'PG.closeModal();PG.goPayExp();'});
+    btns.push({label:'Cancel',cls:'btn-ghost',fn:'PG.closeModal();'});
+    showModal('Month not complete',msg,btns);
+  },
+  passMonth:function(){
+    if(!canPass()){PG.passBlocked();return;}
+    // Black swan — draw after month 6 of each year, once per year
+    if(G.month===6&&!G.blackSwanDrawnThisYear){
+      G.blackSwanDrawnThisYear=true;
+      G.eventCard=drawBlackSwan();
+    } else {
+      G.eventCard=drawCard();
+    }
+    G.screen='event';render();
+  },
+  acceptEvent:function(){
+    if(G.eventCard&&G.eventCard.fn)G.eventCard.fn();
+    G.delegDiscount=false;G.opmDiscount=false;
+    G.screen='endmonth';render();
+  },
+  nextMonth:function(){
+    if(G.month>=12){G.month=1;G.year++;G.blackSwanDrawnThisYear=false;}
+    else{G.month++;}
+    var toMerge=[];var toKeep=[];
+    G.assets.forEach(function(a){
+      if(a.newThisMonth){
+        a.newThisMonth=false;
+        if(a.stackParent)toMerge.push(a);
+        else toKeep.push(a);
+      } else {
+        a.monthsOwned=(a.monthsOwned||0)+1;
+        a.vacantThisMonth=false;
+        if(a.regulatorySuspended>0){a.regulatorySuspended--;if(a.regulatorySuspended===0)addLog(a.name+' regulatory suspension lifted.');}
+        toKeep.push(a);
+      }
+    });
+    toMerge.forEach(function(m){
+      var parent=toKeep.find(function(a){return a.id===m.stackParent;});
+      if(parent){parent.income+=m.income;parent.expense+=m.expense;parent.count=(parent.count||1)+1;}
+      else{m.id=m.stackParent;delete m.stackParent;toKeep.push(m);}
+    });
+    G.assets=toKeep;
+    G.monthIncomes=null;G.monthExpenses=null;G.eventCard=null;
+    G.lifestyleTemptationPending=false;G.lifestyleTemptationShown=false;
+    recalc();G.screen='game';render();
+  },
+  reset:function(){
+    Object.assign(G,{
+      screen:'title',playerName:'',profile:null,month:1,year:1,cash:0,
+      expenses:[],assets:[],liabilities:[],log:[],eventDeck:[],usedEvents:[],eventCard:null,
+      hasManager:false,housing:null,grocery:null,monthIncomes:null,monthExpenses:null,
+      delegDiscount:false,opmDiscount:false,passiveIncome:0,passiveExpense:0,
+      salaryGrowthBonus:0,monthsPlayed:0,timeUsed:0,reputation:3,dealsDone:0,
+      dealsDoneByCategory:{},dealsDoneById:[],carriedExpenses:[],
+      disciplineScore:0,taxRate:30,loanAmount:0,loanMonthlyPayment:0,
+      identityShiftShown:false,lifestyleTemptationPending:false,lifestyleTemptationShown:false,
+      blackSwanDrawnThisYear:false,blackSwanExpenseSpike:0,
+      consolidationPhase:false,consecutivePassiveCoverageMonths:0,inflationFactor:1
+    });
+    render();
+  }
+};
+
+if(!G.carriedExpenses)G.carriedExpenses=[];
+
+detectLocation(function(success){
+  G.screen=success?'title':'setup_loc';
+  render();
+});
+
+})();
+</script>
+</body>
+</html>
