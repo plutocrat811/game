@@ -129,8 +129,6 @@ html,body{
 
 /* ─── INPUT ─── */
 .inp{
-  width:100%;
-  max-width:420px;
   background:var(--bg3);
   border:1px solid var(--border);
   border-radius:6px;
@@ -141,9 +139,13 @@ html,body{
   outline:none;
   transition:border 0.2s;
   display:block;
+  width:100%;
+  max-width:320px;
 }
 .inp:focus{border-color:var(--border-gold)}
 .inp::placeholder{color:var(--text3)}
+.inp-inline{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:0}
+.inp-inline .inp{flex:1;min-width:180px;max-width:320px}
 
 /* ─── HUD ─── */
 .hud{display:grid;gap:6px;margin-bottom:14px}
