@@ -166,8 +166,7 @@ function settleMonth(){
 
   if(G.monthIncomes){
     G.monthIncomes.forEach(function(item){
-      if(item.done&&item.amount>0){
-        var tax=item.isSalary?salaryTax():item.isPassive?passiveTax(item.amount):0;
+      if(item.done&&item.amount>0&&!item.cashTaken){
         collectedIncome+=item.amount;
         if(item.isSalary)salaryTaxAmt+=salaryTax();
         if(item.isPassive)passiveTaxAmt+=passiveTax(item.amount);
@@ -177,7 +176,7 @@ function settleMonth(){
 
   if(G.monthExpenses){
     G.monthExpenses.forEach(function(item){
-      if(item.done){paidExp+=item.amount;}
+      if(item.done&&!item.cashTaken){paidExp+=item.amount;}
     });
   }
 
@@ -354,6 +353,7 @@ function managerAutoPayExpenses(){
     if(G.cash>=item.amount){
       G.cash=Math.max(0,G.cash-item.amount);
       item.done=true;
+      item.cashTaken=true;
     }
     /* If mandatory and cannot afford — leave undone. settleMonth handles carry. */
   });
@@ -1196,8 +1196,9 @@ window.PG={
       G.monthIncomes.forEach(function(i){
         if(!i.done){
           var tax=i.isSalary?salaryTax():i.isPassive?passiveTax(i.amount):0;
+          G.cash+=(i.amount-tax);
           i.done=true;
-          /* Cash will be settled in settleMonth — manager marks done only */
+          i.cashTaken=true;
         }
       });
     }
@@ -1215,14 +1216,24 @@ window.PG={
   collectOne:function(idx){
     var item=G.monthIncomes&&G.monthIncomes[idx];
     if(!item||item.done)return;
+    var tax=item.isSalary?salaryTax():item.isPassive?passiveTax(item.amount):0;
+    G.cash+=(item.amount-tax);
     item.done=true;
-    /* Cash movement handled in settleMonth */
+    item.cashTaken=true;
     render();
   },
   payOne:function(idx){
     var item=G.monthExpenses&&G.monthExpenses[idx];
     if(!item||item.done)return;
+    if(G.cash<item.amount){
+      showModal('Insufficient cash',
+        'You need '+fmt(item.amount)+' to pay <strong>'+item.label+'</strong>.<br><br>You have '+fmt(G.cash)+'. Collect income first or sell an asset.',
+        [{label:'OK',cls:'btn-ghost',fn:'PG.closeModal();'}]);
+      return;
+    }
+    G.cash-=item.amount;
     item.done=true;
+    item.cashTaken=true;
     if(item.isCarried){G.carriedExpenses=G.carriedExpenses.filter(function(c){return c.id!==item.originalId;});}
     render();
   },
