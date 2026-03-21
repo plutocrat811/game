@@ -420,8 +420,10 @@ function rSetupLoc(s){
 function rName(s){
   s.innerHTML='<div class="ch" style="font-size:20px;margin-bottom:8px">What is your name?</div>'
     +'<div style="font-size:12px;color:var(--text3);margin-bottom:24px">This is your game. It should feel like your life.</div>'
+    +'<div class="inp-inline">'
     +'<input class="inp" id="ninp" placeholder="Enter your name" maxlength="30" value="'+G.playerName+'" onkeydown="if(event.key===\'Enter\')PG.setName()"/>'
-    +'<div class="brow"><button class="btn btn-gold" onclick="PG.setName()">Continue</button></div>';
+    +'<button class="btn btn-gold" onclick="PG.setName()">Continue</button>'
+    +'</div>';
   setTimeout(function(){var i=gel('ninp');if(i)i.focus();},80);
 }
 
@@ -1591,9 +1593,16 @@ window.PG={
 };
 
 /* ─── INIT ─── */
-detectLocation(function(success){
-  G.screen=success?'title':'setup_loc';
-  render();
-});
+function init(){
+  detectLocation(function(success){
+    G.screen=success?'title':'setup_loc';
+    render();
+  });
+}
+if(document.readyState==='loading'){
+  document.addEventListener('DOMContentLoaded',init);
+} else {
+  setTimeout(init,0);
+}
 
 })();
