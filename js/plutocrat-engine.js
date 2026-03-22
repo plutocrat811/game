@@ -908,6 +908,7 @@ function rDeals(s){
 function rEvent(s){
   var e=G.eventCard;
   var isBlackSwan=e.type==='blackswan';
+  var isOpportunity=e.type==='opportunity'||e.type==='market';
   var ecls=e.type==='opportunity'?'epos':e.type==='setback'?'eneg':e.type==='market'?'epurp':isBlackSwan?'eneg':'eneu';
   s.innerHTML='<div class="ch" style="font-size:11px;letter-spacing:3px;margin-bottom:18px">'+(isBlackSwan?'⚠ BLACK SWAN EVENT':'Event card')+' — Y'+G.year+' M'+G.month+'</div>'
     +'<div class="ecard '+e.type+'">'
@@ -917,8 +918,20 @@ function rEvent(s){
     +'<div class="eeffect '+ecls+'">'+e.effect+'</div>'
     +'</div>'
     +'<div class="brow"><button class="btn btn-gold" onclick="PG.acceptEvent()">Accept outcome</button></div>';
+  /* Visual flash for dramatic events */
+  if(isBlackSwan){
+    var f=document.createElement('div');
+    f.className='event-flash flash-red';
+    document.body.appendChild(f);
+    setTimeout(function(){if(f.parentNode)f.parentNode.removeChild(f);},600);
+  } else if(isOpportunity){
+    var f=document.createElement('div');
+    f.className='event-flash flash-green';
+    document.body.appendChild(f);
+    setTimeout(function(){if(f.parentNode)f.parentNode.removeChild(f);},400);
+  }
 }
-
+  
 /* ─── SMART RESPONSE SCREEN ─── */
 function rSmartResponse(s){
   var e=G.eventCard;
