@@ -1691,6 +1691,7 @@ dismissTutorial:function(){G.tutorialDismissed=true;render();},
 
   /* Reset */
   reset:function(){
+    clearSave();
     Object.assign(G,{
       screen:'title',playerName:'',profile:null,month:1,year:1,cash:0,
       expenses:[],assets:[],liabilities:[],log:[],eventDeck:[],usedEvents:[],eventCard:null,
