@@ -1122,6 +1122,27 @@ function rBankruptcy(s){
 
 function rWin(s){
   recalc();var ft=freeTime();var win=checkWin()||WINS[0];var exp=totalExp();
+  var np=netPassive();
+  /* Asset breakdown */
+  var assetBreakdown='';
+  G.assets.forEach(function(a){
+    var net=(a.income||0)-(a.expense||0);
+    assetBreakdown+='<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:11px">'
+      +'<span style="color:var(--text2)">'+a.name+(a.count>1?' x'+a.count:'')+'</span>'
+      +'<span style="color:'+(net>0?'var(--green)':'var(--red)')+'">'+fmtS(net)+'/mo</span>'
+      +'</div>';
+  });
+  /* Category breakdown for dealmaker */
+  var dealBreakdown='';
+  if(G.profile==='dealmaker'&&G.dealsDone>0){
+    dealBreakdown='<div style="margin-bottom:6px;font-size:10px;color:var(--text3);letter-spacing:1px;text-transform:uppercase">Deals by category</div>';
+    Object.keys(G.dealsDoneByCategory).forEach(function(cat){
+      dealBreakdown+='<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:11px">'
+        +'<span style="color:var(--text2)">'+cat+'</span>'
+        +'<span style="color:var(--purple)">'+G.dealsDoneByCategory[cat]+' deals</span>'
+        +'</div>';
+    });
+  }
   s.innerHTML='<div class="win">'
     +'<div class="wt">'+win.label+' Victory — Y'+G.year+' M'+G.month+'</div>'
     +'<div class="wc">'+win.crown+'</div>'
@@ -1129,12 +1150,27 @@ function rWin(s){
     +'<div class="wb">'+win.desc+'</div>'
     +'<div class="hud hud2" style="max-width:400px;margin:0 auto 24px">'
     +'<div class="hbox"><div class="hlbl">Final cash</div><div class="hval">'+fmt(G.cash)+'</div></div>'
-    +'<div class="hbox"><div class="hlbl">Net passive/mo</div><div class="hval g">'+fmtS(netPassive())+'</div></div>'
+    +'<div class="hbox"><div class="hlbl">Net passive/mo</div><div class="hval g">'+fmtS(np)+'</div></div>'
     +'<div class="hbox"><div class="hlbl">Expenses/mo</div><div class="hval r">'+fmt(exp)+'</div></div>'
     +'<div class="hbox"><div class="hlbl">Free time</div><div class="hval" style="color:'+timeColor()+'">'+ft+'/24</div></div>'
     +'</div>'
-    +'<div style="font-size:11px;color:var(--text3);margin-bottom:8px">'+G.assets.length+' assets &nbsp;·&nbsp; '+G.monthsPlayed+' months &nbsp;·&nbsp; '+prof().name+'</div>'
-    +'<div style="font-size:11px;color:var(--gold);margin-bottom:24px">Discipline score: '+G.disciplineScore+' &nbsp;·&nbsp; Tax rate: '+G.taxRate+'%</div>'
+    +'<div style="font-size:11px;color:var(--text3);margin-bottom:4px">'+G.monthsPlayed+' months &nbsp;·&nbsp; '+prof().name+' &nbsp;·&nbsp; '+LOC.country+'</div>'
+    +'<div style="font-size:11px;color:var(--gold);margin-bottom:20px">Discipline: '+G.disciplineScore+' &nbsp;·&nbsp; Tax rate: '+G.taxRate+'% &nbsp;·&nbsp; Reputation: '+G.reputation+'/10</div>'
+    +(G.assets.length>0
+      ?'<div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px;max-width:400px;margin:0 auto 20px;text-align:left">'
+        +'<div style="font-size:10px;color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px">'+G.assets.length+' assets built</div>'
+        +assetBreakdown
+        +'</div>'
+      :'')
+    +(dealBreakdown
+      ?'<div style="background:var(--bg2);border:1px solid rgba(154,106,204,.3);border-radius:8px;padding:14px;max-width:400px;margin:0 auto 20px;text-align:left">'
+        +dealBreakdown
+        +'<div style="font-size:11px;color:var(--purple);margin-top:6px">'+G.dealsDone+' total deals closed</div>'
+        +'</div>'
+      :'')
+    +(G.liabilities.length>0
+      ?'<div style="font-size:11px;color:var(--red);margin-bottom:16px">'+G.liabilities.length+' liabilit'+(G.liabilities.length>1?'ies':'y')+' still active at victory</div>'
+      :'<div style="font-size:11px;color:var(--green);margin-bottom:16px">Zero liabilities at victory. Clean balance sheet.</div>')
     +'<button class="btn btn-gold" onclick="PG.reset()" style="margin-bottom:22px">Play again</button>'
     +'<div style="font-size:9px;letter-spacing:3px;color:var(--text3);text-transform:uppercase;margin-top:14px">Billionaire by 20 — Think like a plutocrat</div>'
     +'</div>';
