@@ -407,6 +407,8 @@ function render(){
     survival:rSurvival,bankruptcy:rBankruptcy
   };
   if(map[G.screen])map[G.screen](s);
+  var setupScreens2=['title','setup_loc','setup_name','setup_profile','setup_housing','setup_grocery'];
+  if(setupScreens2.indexOf(G.screen)===-1)saveGame();
 }
 
 /* ─────────────────────────────────────────
