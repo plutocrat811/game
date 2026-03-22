@@ -153,17 +153,17 @@ function drawBlackSwan(){
 function checkScenario(){
   /* Returns first eligible scenario not yet fired, or null */
   for(var i=0;i<DEAL_SCENARIOS.length;i++){
-    var sc_obj=DEAL_SCENARIOS[i];
-    if(G.scenariosFired.indexOf(sc_obj.id)>-1)continue;
-    if(G.month<(sc_obj.minMonth||1))continue;
-    if(sc_obj.profiles.indexOf('all')===-1&&sc_obj.profiles.indexOf(G.profile)===-1)continue;
+    var scenObj=DEAL_SCENARIOS[i];
+    if(G.scenariosFired.indexOf(scenObj.id)>-1)continue;
+    if(G.month<(scenObj.minMonth||1))continue;
+    if(scenObj.profiles.indexOf('all')===-1&&scenObj.profiles.indexOf(G.profile)===-1)continue;
     /* Fire at most one per 3 months and only when player has some assets or cash stake */
     var lastFired=G.scenariosFired.length;
     if(lastFired>0&&G.monthsPlayed-(G.lastScenarioMonth||0)<3)continue;
     if(G.cash<sc(20000)&&G.assets.length===0)continue;
-    /* FIX: stamp lastScenarioMonth here so a scenario shown-but-not-chosen doesn't re-fire next month */
+    /* stamp lastScenarioMonth here so a scenario shown-but-not-chosen doesn't re-fire next month */
     G.lastScenarioMonth=G.monthsPlayed;
-    return sc_obj;
+    return scenObj;
   }
   return null;
 }
@@ -1210,17 +1210,17 @@ function checkLegend(){
 
 /* ─── SCENARIO SCREEN ─── */
 function rScenario(s){
-  var sc_obj=G.pendingScenario;if(!sc_obj){G.screen='game';render();return;}
+  var scenObj=G.pendingScenario;if(!scenObj){G.screen='game';render();return;}
   var h='<div class="ch" style="font-size:11px;letter-spacing:3px;margin-bottom:18px">Historical deal scenario — Y'+G.year+' M'+G.month+'</div>'
     +'<div class="ecard scenario">'
     +'<div class="etype scenario">Deal scenario</div>'
-    +'<div class="etitle">'+sc_obj.title+'</div>'
-    +'<div class="ebody">'+sc_obj.setup+'</div>'
+    +'<div class="etitle">'+scenObj.title+'</div>'
+    +'<div class="ebody">'+scenObj.setup+'</div>'
     +'</div>'
     +'<div class="sec" style="margin-top:14px">Your decision</div>'
     +'<div class="scenario-choices">';
-  sc_obj.choices.forEach(function(ch){
-    h+='<div class="scenario-choice" onclick="PG.chooseScenario(\''+sc_obj.id+'\',\''+ch.id+'\')">'
+  scenObj.choices.forEach(function(ch){
+    h+='<div class="scenario-choice" onclick="PG.chooseScenario(\''+scenObj.id+'\',\''+ch.id+'\')">'
       +'<div class="sc-label">'+ch.label+'</div>'
       +'<div class="sc-desc">'+ch.desc+'</div>'
       +'<div class="sc-hint">'+ch.hint+'</div>'
@@ -1319,7 +1319,8 @@ function rBankruptcy(s){
 }
 
 function rWin(s){
-  recalc();var ft=freeTime();var win=checkWin()||WINS[0];var exp=totalExp();
+  recalc();var ft=freeTime();var exp=totalExp();
+  var win=G.claimedWin||checkWin()||WINS[0];
   var np=netPassive();
   /* Asset breakdown */
   var assetBreakdown='';
@@ -1441,7 +1442,7 @@ window.PG={
     if(!G.monthIncomes)G.monthIncomes=buildMonthIncomes();
     if(G.hasManager){
       G.monthIncomes.forEach(function(i){
-        if(!i.done){
+        if(!i.done&&!i.cashTaken){
           var tax=i.isSalary?salaryTax():i.isPassive?passiveTax(i.amount):0;
           G.cash+=(i.amount-tax);
           i.done=true;
@@ -1515,7 +1516,7 @@ window.PG={
       addLog('Acquired: '+name+'. Owned now. Income starts next month.');
     }
     if(G.opmDiscount)G.opmDiscount=false;
-    G.delegDiscount=false;recalc();render();
+    G.delegDiscount=false;recalc();autosave();render();
   },
   sellAsset:function(idx){
     var a=G.assets[idx];if(!a||a.newThisMonth)return;
@@ -1530,7 +1531,7 @@ window.PG={
   confirmSell:function(idx,price){
     var a=G.assets[idx];if(!a)return;
     G.cash+=price;addLog('Sold: '+a.name+'. Received '+fmt(price)+'.');
-    G.assets.splice(idx,1);recalc();render();
+    G.assets.splice(idx,1);recalc();autosave();render();
   },
   buyLiability:function(id,cost,monthly){
     var item=LIABILITIES.find(function(x){return x.id===id;});if(!item)return;
@@ -1606,9 +1607,8 @@ window.PG={
     G.disciplineScore+=2;
     addLog('Dropped habit: '+l.name+'. +2 discipline. '+( exitVal>0?'Recovered '+fmt(exitVal)+'.':'Zero exit value.')+'  "You cut the expense. But the urge will return."');
     G.liabilities.splice(idx,1);
-    /* Remove from current month expenses if present */
     if(G.monthExpenses){G.monthExpenses=G.monthExpenses.filter(function(e){return e.id!=='liab_'+l.id;});}
-    render();
+    autosave();render();
   },
 
   /* Deals */
@@ -1661,9 +1661,9 @@ window.PG={
       G.screen='legend';render();return;
     }
     /* Check for scenario trigger */
-    var sc_check=checkScenario();
-    if(sc_check){
-      G.pendingScenario=sc_check;
+    var scenCheck=checkScenario();
+    if(scenCheck){
+      G.pendingScenario=scenCheck;
       G.screen='scenario';render();return;
     }
     /* Draw event card — black swan fires on randomised month (default month 6 year 1, then random) */
@@ -1708,8 +1708,8 @@ window.PG={
   acknowledgeLegend:function(){
     G.pendingLegend=null;
     /* After legend, check for scenario then draw event normally */
-    var sc_check=checkScenario();
-    if(sc_check){G.pendingScenario=sc_check;G.screen='scenario';render();return;}
+    var scenCheck=checkScenario();
+    if(scenCheck){G.pendingScenario=scenCheck;G.screen='scenario';render();return;}
     var bsMonth=G.blackSwanMonth||6;
     if(G.month===bsMonth&&!G.blackSwanDrawnThisYear){
       G.blackSwanDrawnThisYear=true;G.eventCard=drawBlackSwan();
@@ -1720,11 +1720,11 @@ window.PG={
 
   /* Scenario actions */
   chooseScenario:function(scenId,choiceId){
-    var sc_obj=DEAL_SCENARIOS.find(function(x){return x.id===scenId;});
-    if(!sc_obj)return;
+    var scenObj=DEAL_SCENARIOS.find(function(x){return x.id===scenId;});
+    if(!scenObj)return;
     G.scenariosFired.push(scenId);
     G.lastScenarioMonth=G.monthsPlayed;
-    var out=sc_obj.outcomes[choiceId];
+    var out=scenObj.outcomes[choiceId];
     if(out.effect)out.effect(G);
     G.pendingOutcome=out;
     G.screen='scenario_outcome';render();
@@ -1815,13 +1815,13 @@ window.PG={
 
   /* Win flow */
   acknowledgeIdentityShift:function(){G.identityShiftShown=true;G.screen='collect';render();},
-  triggerWin:function(){G.screen='consolidation';render();},
+  triggerWin:function(){G.claimedWin=checkWin();G.screen='consolidation';render();},
   enterConsolidation:function(){
     G.consolidationPhase=true;G.consecutivePassiveCoverageMonths=0;
     addLog('Consolidation phase entered. New challenge: sustain 3x passive coverage for 3 months.');
     G.screen='game';render();
   },
-  claimWin:function(){G.screen='win';render();},
+  claimWin:function(){G.claimedWin=checkWin()||G.claimedWin;G.screen='win';render();},
 
   /* Next month */
   nextMonth:function(){
@@ -1894,12 +1894,12 @@ window.PG={
       consolidationPhase:false,consecutivePassiveCoverageMonths:0,inflationFactor:1,
       managerMonthlySalary:0,
       scenariosFired:[],pendingScenario:null,survivalStep:0,bankruptcyLog:[],lastScenarioMonth:0,
-      tutorialDismissed:false,showFullLog:false,dealFilter:'all',   /* FIX: reset UI state too */
+      tutorialDismissed:false,showFullLog:false,dealFilter:'all',
       _lastSettleResult:null,passiveFirstFireSeen:false,
-      legendFired:[],lastLegendMonth:0,pendingLegend:null
+      legendFired:[],lastLegendMonth:0,pendingLegend:null,
+      claimedWin:null
     });
     render();
-  }
 };
 
 /* ─── INIT ─── */
