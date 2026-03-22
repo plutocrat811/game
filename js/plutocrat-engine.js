@@ -1401,6 +1401,7 @@ window.PG={
   },
 
   /* Deals */
+
   executeDeal:function(id){
     var deal=DEALS.find(function(d){return d.id===id;});if(!deal)return;
     if(G.reputation<deal.repReq||freeTime()<deal.time||!dealPrereqMet(deal))return;
