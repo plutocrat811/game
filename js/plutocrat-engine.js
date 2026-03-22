@@ -1187,6 +1187,7 @@ window.PG={
 
   /* Board navigation */
   goGame:function(){G.screen='game';render();},
+  toggleLog:function(){G.showFullLog=!G.showFullLog;render();},
   goBorrow:function(){G.screen='borrow';render();},
   goBuy:function(){G.screen='buy';render();},
   goDeals:function(){
