@@ -937,6 +937,109 @@ var DEAL_SCENARIOS=[
         effectLabel:'+cash, +1 discipline'
       }
     }
+  },
+
+  /* ── INHERITOR-SPECIFIC SCENARIOS ── */
+  {
+    id:'sc_inheritor_trust',
+    profiles:['inheritor'],
+    minMonth:2,
+    title:'The Advisor Who Knew Best',
+    setup:'Your family wealth manager has been handling the estate for 20 years. He recommends moving 60% of your inherited portfolio into a "guaranteed" structured product he is selling. Your uncle — a retired businessman — quietly tells you the product has high hidden fees and the manager earns a large commission from it. The manager has never lost money for your family before.',
+    choices:[
+      {
+        id:'trust_manager',
+        label:'Trust the manager — 20 years of loyalty means something',
+        desc:'He has never failed the family. The product must be sound.',
+        hint:'Commission-driven advice is never truly independent advice.'
+      },
+      {
+        id:'trust_uncle',
+        label:'Listen to your uncle — follow the incentives',
+        desc:'Ask who benefits from this recommendation before you decide.',
+        hint:'The best financial advice always comes from someone with nothing to gain.'
+      },
+      {
+        id:'do_own_research',
+        label:'Pause — read the product documents yourself before deciding',
+        desc:'Never sign anything you have not personally understood.',
+        hint:'Most financial disasters begin with documents nobody actually read.'
+      }
+    ],
+    outcomes:{
+      trust_manager:{
+        title:'The fees compounded. The returns did not.',
+        body:'The product performed — but after fees, your actual return was a fraction of the market. The manager earned a significant commission. Your loyalty cost you years of compounding.',
+        lesson:'The person selling you a financial product is not your advisor. They are a salesperson.',
+        effect:function(G){G.cash=Math.max(0,G.cash-sc(120000));G.disciplineScore=Math.max(0,G.disciplineScore-1);},
+        effectLabel:'−cash, −1 discipline'
+      },
+      trust_uncle:{
+        title:'You followed the incentives. You kept the capital.',
+        body:'Your uncle was right. The hidden fees would have eroded returns significantly over time. You moved the capital into index funds instead. The manager was offended. The portfolio thanked you.',
+        lesson:'Always ask: what does this person earn if I say yes? That answer tells you everything.',
+        effect:function(G){G.cash+=sc(80000);G.disciplineScore+=2;},
+        effectLabel:'+cash, +2 discipline'
+      },
+      do_own_research:{
+        title:'You read the documents. You found the fees on page 47.',
+        body:'Hidden in the fine print was a 3.5% annual management fee and a 5% early exit penalty. You declined the product, moved the capital yourself and earned the full market return. Reading one document saved years of compounding.',
+        lesson:'Page 47 is where they hide the truth. Always read page 47.',
+        effect:function(G){G.cash+=sc(120000);G.disciplineScore+=3;},
+        effectLabel:'+cash, +3 discipline'
+      }
+    }
+  },
+
+  {
+    id:'sc_inheritor_business',
+    profiles:['inheritor'],
+    minMonth:4,
+    title:'The Family Business You Did Not Build',
+    setup:'Your family owns a profitable manufacturing business. A private equity firm offers to buy it for 15x earnings — a life-changing sum. Your cousins want to sell immediately and split the proceeds. Your father built this business over 30 years and left it to you. The business still has strong cash flow but the industry is changing fast.',
+    choices:[
+      {
+        id:'sell_all',
+        label:'Sell — take the 15x and deploy into diversified assets',
+        desc:'15x earnings is a premium valuation. The capital can work harder elsewhere.',
+        hint:'Concentrated family business risk is real. Diversification is not betrayal.'
+      },
+      {
+        id:'refuse_sell',
+        label:'Refuse to sell — honour what your father built',
+        desc:'This business is legacy, not just income. You will grow it yourself.',
+        hint:'Emotional attachment to assets is the most expensive kind.'
+      },
+      {
+        id:'partial_sell',
+        label:'Sell 60% — take capital off the table, keep operational control',
+        desc:'Partner with the PE firm. Take liquidity. Keep upside and legacy.',
+        hint:'The best deal is often the one that gives you both certainty and future.'
+      }
+    ],
+    outcomes:{
+      sell_all:{
+        title:'You took the premium. You deployed the capital.',
+        body:'15x earnings was a once-in-a-decade valuation. You sold, diversified across five asset classes and generated more passive income than the business ever produced. The industry shifted two years later — the PE firm struggled. You did not.',
+        lesson:'Valuation is a moment in time. Diversification is permanent protection.',
+        effect:function(G){G.cash+=sc(500000);G.disciplineScore+=2;G.reputation=Math.min(10,G.reputation+1);},
+        effectLabel:'+cash, +2 discipline, +1 reputation'
+      },
+      refuse_sell:{
+        title:'Loyalty is not a strategy.',
+        body:'You kept the business. The industry shifted. Margins compressed. Two years later a buyer offered 6x — less than half the original offer. Emotional attachment to an asset had a very precise cost.',
+        lesson:'Your father built it for your freedom — not for you to be imprisoned by it.',
+        effect:function(G){G.cash=Math.max(0,G.cash-sc(100000));G.disciplineScore=Math.max(0,G.disciplineScore-1);},
+        effectLabel:'−cash, −1 discipline'
+      },
+      partial_sell:{
+        title:'You took liquidity and kept the legacy.',
+        body:'The PE firm brought operational expertise. You brought knowledge and continuity. The business grew. Your diversified capital also grew. You had both — the security of diversification and the upside of ownership.',
+        lesson:'The best deals create options — not obligations.',
+        effect:function(G){G.cash+=sc(300000);G.disciplineScore+=2;G.reputation=Math.min(10,G.reputation+2);},
+        effectLabel:'+cash, +2 discipline, +2 reputation'
+      }
+    }
   }
 ];
 
