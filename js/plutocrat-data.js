@@ -1189,5 +1189,267 @@ var EVENT_RESPONSES={
       why:'Diversification and systems turned a setback into a minor disruption.',
       damage:function(G){G.assets.forEach(function(a){if(a.id==='content')a.vacantThisMonth=true;});}
     }
+  },
+
+  'Legal dispute':{
+    check:function(G){
+      var cashRatio=G.cash/Math.max(1,totalExp());
+      var hasSOP=G.assets.find(function(a){return a.id==='build_sop'&&!a.newThisMonth;});
+      var highDiscipline=G.disciplineScore>=5;
+      if(hasSOP&&cashRatio>=6)return 'prepared';
+      if(hasSOP||cashRatio>=4||highDiscipline)return 'partial';
+      return 'unprepared';
+    },
+    unprepared:{
+      title:'Full legal cost absorbed.',
+      body:'No documented systems, no cash buffer. Legal fees consumed 60% of your reserves. Deals with undocumented terms carry maximum exposure.',
+      why:'No SOP and low cash reserves meant you had zero protection when the dispute arrived.',
+      damage:function(G){G.cash=Math.floor(G.cash*0.4);}
+    },
+    partial:{
+      title:'Partial protection held.',
+      body:'Some documentation or cash buffer reduced the damage. The dispute was costly but survivable.',
+      why:'Either documented processes or a cash buffer provided partial defence.',
+      damage:function(G){G.cash=Math.floor(G.cash*0.7);}
+    },
+    prepared:{
+      title:'Documented and defended.',
+      body:'Every agreement had paper trails. Legal fees were covered by your buffer. The dispute resolved quickly because your systems made your position clear.',
+      why:'SOP documentation and strong cash reserves gave your legal team what they needed.',
+      damage:function(G){G.cash=Math.floor(G.cash*0.88);}
+    }
+  },
+
+  'Key person dependency':{
+    check:function(G){
+      var hasSOP=G.assets.find(function(a){return a.id==='build_sop'&&!a.newThisMonth;});
+      var hasManager=G.hasManager;
+      var streams=G.assets.filter(function(a){return !a.newThisMonth&&a.income>0;}).length;
+      if(hasSOP&&hasManager)return 'prepared';
+      if(hasSOP||hasManager||(streams>=3))return 'partial';
+      return 'unprepared';
+    },
+    unprepared:{
+      title:'Everything walked out the door with them.',
+      body:'No documented processes. No redundancy. One person leaving took clients, relationships and the deal pipeline. The business was the person — not the system.',
+      why:'Without SOP or a manager, your operation had no institutional memory.',
+      damage:function(G){G.cash=Math.floor(G.cash*0.65);G.reputation=Math.max(0,G.reputation-2);}
+    },
+    partial:{
+      title:'Painful but recoverable.',
+      body:'You lost some of the pipeline. But either your systems preserved the client relationships or your manager bridged the gap. You rebuilt within the month.',
+      why:'One layer of protection — SOP, manager, or diversified income — absorbed the impact.',
+      damage:function(G){G.cash=Math.floor(G.cash*0.82);G.reputation=Math.max(0,G.reputation-1);}
+    },
+    prepared:{
+      title:'The system did not miss a beat.',
+      body:'Documented processes meant nobody could walk out with institutional knowledge. Your manager had full context. The departure was an inconvenience, not a crisis.',
+      why:'SOP plus manager meant your business ran on systems, not on people.',
+      damage:function(G){G.cash=Math.floor(G.cash*0.95);}
+    }
+  },
+
+  'Medical emergency':{
+    check:function(G){
+      var np=netPassive();var exp=totalExp();
+      var cashRatio=G.cash/Math.max(1,exp);
+      var hasManager=G.hasManager;
+      if(np>=exp&&hasManager&&cashRatio>=6)return 'prepared';
+      if(np>=exp||hasManager||cashRatio>=4)return 'partial';
+      return 'unprepared';
+    },
+    unprepared:{
+      title:'Stopped earning. Still spending.',
+      body:'No passive income. No manager. When you could not work, everything stopped except the bills. Six weeks of zero income with full expenses.',
+      why:'Without passive income or systems, your income was entirely dependent on your physical presence.',
+      damage:function(G){G.cash=Math.floor(G.cash*0.55);}
+    },
+    partial:{
+      title:'Partial continuity.',
+      body:'Either your passive income covered the basics or your manager kept things moving. Not both — but enough to prevent a crisis.',
+      why:'One layer of protection held while the other was missing.',
+      damage:function(G){G.cash=Math.floor(G.cash*0.78);}
+    },
+    prepared:{
+      title:'The portfolio did not need you to recover.',
+      body:'Passive income covered all expenses. Manager kept operations running. The emergency was personal — not financial. Your systems gave you the space to heal.',
+      why:'Strong passive income, manager automation, and cash buffer created a complete safety net.',
+      damage:function(){}
+    }
+  },
+
+  'Single point of failure':{
+    check:function(G){
+      var streams=G.assets.filter(function(a){return !a.newThisMonth&&a.income>0;}).length;
+      var cats=[];
+      G.assets.forEach(function(a){if(!a.newThisMonth&&a.bucket&&cats.indexOf(a.bucket)===-1)cats.push(a.bucket);});
+      var diversified=cats.length>=3;
+      if(streams>=4&&diversified)return 'prepared';
+      if(streams>=2||diversified)return 'partial';
+      return 'unprepared';
+    },
+    unprepared:{
+      title:'One client gone. Everything gone.',
+      body:'Your biggest client walked. Revenue dropped 60% instantly. When one source is your entire income, it is not a business — it is a dependency.',
+      why:'Single income source with no diversification meant this was a total failure.',
+      damage:function(G){G.cash=Math.max(0,G.cash-sc(40000));}
+    },
+    partial:{
+      title:'Significant hit. Others held.',
+      body:'The major client leaving hurt. But at least one other stream continued. The wound was real, but the patient survived.',
+      why:'Some diversification meant the damage was partial, not fatal.',
+      damage:function(G){G.cash=Math.max(0,G.cash-sc(20000));}
+    },
+    prepared:{
+      title:'Diversification absorbed it completely.',
+      body:'Four income streams. Three asset buckets. When one source contracted, the others continued without interruption. The client walked — your income did not.',
+      why:'True diversification across multiple streams and buckets made this a non-event.',
+      damage:function(){}
+    }
+  },
+
+  'Market correction':{
+    check:function(G){
+      var hasDiversified=G.assets.filter(function(a){return !a.newThisMonth;}).length>=2;
+      var hasLoan=G.loanAmount>0;
+      var highDiscipline=G.disciplineScore>=4;
+      if(hasDiversified&&highDiscipline&&!hasLoan)return 'prepared';
+      if(hasDiversified||highDiscipline)return 'partial';
+      return 'unprepared';
+    },
+    unprepared:{
+      title:'Fully exposed to the correction.',
+      body:'Concentrated position with active debt. The correction amplified every vulnerability. Leveraged positions in falling markets are how fortunes are lost.',
+      why:'Single asset type and active loan magnified the downside.',
+      damage:function(G){G.cash=Math.max(0,G.cash-sc(20000));if(G.loanAmount>0)G.cash=Math.floor(G.cash*0.85);}
+    },
+    partial:{
+      title:'Dipped but recovered.',
+      body:'Some diversification softened the blow. The correction was felt but not devastating. A reminder that markets always move in both directions.',
+      why:'Partial diversification or discipline provided a buffer against the full impact.',
+      damage:function(G){G.cash=Math.max(0,G.cash-sc(8000));}
+    },
+    prepared:{
+      title:'Bought the dip.',
+      body:'Diversified portfolio. No debt. High discipline. While others were selling in panic, your position was stable enough to consider buying more. The correction was a gift.',
+      why:'Discipline and diversification turned a correction into a buying opportunity.',
+      damage:function(G){G.cash+=sc(10000);}
+    }
+  },
+
+  'Property damage':{
+    check:function(G){
+      var cashRatio=G.cash/Math.max(1,totalExp());
+      var hasManager=G.hasManager;
+      if(hasManager&&cashRatio>=5)return 'prepared';
+      if(hasManager||cashRatio>=3)return 'partial';
+      return 'unprepared';
+    },
+    unprepared:{
+      title:'Emergency repair. No buffer. No manager.',
+      body:'The damage was significant and the repair bill arrived without warning. No cash reserve meant the repair came directly from your operating funds.',
+      why:'No cash buffer and no manager meant you absorbed the full cost with no protection.',
+      damage:function(G){G.cash=Math.max(0,G.cash-sc(30000));}
+    },
+    partial:{
+      title:'Covered — just.',
+      body:'Either your cash reserve absorbed it or your manager handled the contractor. The repair was expensive but the damage to your finances was manageable.',
+      why:'One layer of protection held.',
+      damage:function(G){G.cash=Math.max(0,G.cash-sc(15000));}
+    },
+    prepared:{
+      title:'Manager handled it. Buffer covered it.',
+      body:'Your manager identified the problem, sourced the contractor, and oversaw the repair. Your cash reserve covered the cost without touching your investment capital.',
+      why:'Manager plus strong cash reserves turned an emergency into a managed expense.',
+      damage:function(G){G.cash=Math.max(0,G.cash-sc(5000));}
+    }
   }
 };
+
+/* ─── LEGEND EVENTS ─── */
+/* Rare narrative moments — fire once per game after month 8, preceding the regular event */
+var LEGEND_EVENTS=[
+  {
+    id:'leg_patience',
+    title:'The Patience Lesson',
+    body:'A mentor sits across from you. He has built more wealth than most countries. He says one thing: "The stock market is a device for transferring money from the impatient to the patient." He pauses. "Which one are you right now?"',
+    lesson:'Wealth is not built in a month. It is built in the decisions you make every month for years.',
+    effect:function(G){G.disciplineScore+=2;},
+    effectLabel:'+2 discipline'
+  },
+  {
+    id:'leg_first_passive',
+    title:'The First Passive Cheque',
+    body:'It arrived while you were asleep. A deposit — not from your work, not from your time, not from your presence. From a system you built months ago and then forgot about. You stared at the notification for a long time.',
+    lesson:'The first unit of passive income is worth more than the thousandth. It is proof of a different life.',
+    effect:function(G){G.disciplineScore+=1;G.cash+=sc(5000);},
+    effectLabel:'+1 discipline, small passive bonus'
+  },
+  {
+    id:'leg_burn_boats',
+    title:'Burn the Boats',
+    body:'You are offered a safe path back. A former employer calls. The salary is higher than before. The role is prestigious. Your passive income is real but still fragile. This is the moment every builder faces: the retreat is available. Will you take it?',
+    lesson:'Safety and freedom are not the same thing. One is an illusion — the question is which one you are choosing.',
+    effect:function(G){G.disciplineScore+=3;},
+    effectLabel:'+3 discipline'
+  },
+  {
+    id:'leg_compound_letter',
+    title:'The Letter from Year Ten',
+    body:'You write a letter to yourself — ten years from now. You describe what you are building. The assets. The systems. The time that will be yours. You fold it. You put it away. You go back to work.',
+    lesson:'Clarity of future vision is the most powerful motivator available. Most people never write the letter.',
+    effect:function(G){G.disciplineScore+=2;G.reputation=Math.min(10,G.reputation+1);},
+    effectLabel:'+2 discipline, +1 reputation'
+  },
+  {
+    id:'leg_warning',
+    title:'The Warning',
+    body:'Your most trusted mentor calls. He has watched you accumulate. He says: "The first million is the hardest. The second destroys more people than the first. You are about to find out which kind of person you are."',
+    lesson:'Wealth does not reveal character. It amplifies it.',
+    effect:function(G){G.disciplineScore+=1;},
+    effectLabel:'+1 discipline'
+  },
+  {
+    id:'leg_optional',
+    title:'The Day You Became Optional',
+    body:'The month closed. Expenses paid. Income collected. Deals reviewed. You were at the beach. You did not receive a single call. Your operation ran — completely — without your physical presence for the first time.',
+    lesson:'The goal was never to be busy. The goal was to become optional.',
+    effect:function(G){G.disciplineScore+=2;G.timeUsed=Math.max(0,G.timeUsed-1);},
+    effectLabel:'+2 discipline, -1 time used permanently'
+  }
+];
+
+/* ─── DEALMAKER PASSIVE INCOME DEALS ─── */
+/* Available in the Buy screen exclusively for the Dealmaker profile */
+var DEALMAKER_PASSIVE_DEALS=[
+  {
+    id:'deal_retainer',
+    name:'Ongoing retainer contract',
+    bucket:'cf',
+    cost:0,
+    income:18000,
+    expense:2000,
+    time:2,
+    type:'passive',
+    repReq:4,
+    repeatable:true,
+    sellVal:function(a){return Math.round(sc(18000)*12*(a.monthsOwned||1)*0.5);},
+    desc:'Convert your best client relationship into a monthly retainer. They pay for access — not outputs. Passive income from your reputation.',
+    condition:function(G){return G.dealsDone>=3&&G.reputation>=4;}
+  },
+  {
+    id:'deal_equity_stake',
+    name:'Equity stake in closed deal',
+    bucket:'eq',
+    cost:0,
+    income:12000,
+    expense:500,
+    time:1,
+    type:'business',
+    repReq:6,
+    repeatable:true,
+    sellVal:function(a){return Math.round(sc(12000)*18*(a.monthsOwned||1)*0.4);},
+    desc:'Instead of taking a fee, take equity. The business you helped build now pays you every month. Risk taken at the deal table — income collected forever.',
+    condition:function(G){return G.dealsDone>=6&&G.reputation>=6;}
+  }
+];
