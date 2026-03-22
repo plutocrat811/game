@@ -765,3 +765,18 @@ html,body{
   .scenario-choices{gap:8px}
   .response-options{gap:8px}
 }
+
+/* ─── EVENT FLASH ─── */
+.event-flash{
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  z-index:999;
+  animation:flashFade 0.6s ease-out forwards;
+}
+.flash-red{background:rgba(204,68,68,0.18)}
+.flash-green{background:rgba(58,170,106,0.12)}
+@keyframes flashFade{
+  0%{opacity:1}
+  100%{opacity:0}
+}
