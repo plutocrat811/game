@@ -69,9 +69,7 @@ var G={
   scenariosFired:[],         /* ids of scenarios already shown */
   pendingScenario:null,      /* scenario object waiting to be shown */
   survivalStep:0,            /* 0=none 1=liquidate 2=mortgage 3=bankrupt */
-  bankruptcyLog:[],          /* copy of log at bankruptcy for display */
-  legendFired:[],            /* ids of legend events already shown */
-  passiveFirstFireSeen:false /* dramatic passive income moment shown */
+  bankruptcyLog:[]           /* copy of log at bankruptcy for display */
 };
 
 /* ─── HELPERS ─── */
@@ -121,7 +119,7 @@ function checkLifestyleTemptation(){
 function checkWin(){
   var exp=totalExp();recalc();var mp=G.monthsPlayed;var np=netPassive();
   if(G.consolidationPhase&&G.consecutivePassiveCoverageMonths>=3&&np>=exp*3)return WINS[3];
-  if(np>0&&np>=exp&&freeTime()>=18&&mp>=5)return WINS[2];  /* FIX: 20 was unreachable; 18 allows delegation path */
+  if(np>0&&np>=exp&&freeTime()>=20&&mp>=5)return WINS[2];
   if(G.cash>=sc(1000000))return WINS[1];
   if(np>0&&np>=exp&&mp>=3)return WINS[0];
   return null;
@@ -151,10 +149,8 @@ function checkScenario(){
     if(sc_obj.profiles.indexOf('all')===-1&&sc_obj.profiles.indexOf(G.profile)===-1)continue;
     /* Fire at most one per 3 months and only when player has some assets or cash stake */
     var lastFired=G.scenariosFired.length;
-    if(lastFired>0&&G.monthsPlayed-(G.lastScenarioMonth||0)<3)continue;
+    if(lastFired>0&&G.monthsPlayed-G.lastScenarioMonth<3)continue;
     if(G.cash<sc(20000)&&G.assets.length===0)continue;
-    /* FIX: stamp lastScenarioMonth here so a scenario shown-but-not-chosen doesn't re-fire next month */
-    G.lastScenarioMonth=G.monthsPlayed;
     return sc_obj;
   }
   return null;
@@ -363,24 +359,10 @@ function managerAutoPayExpenses(){
   });
 }
 
-/* ─── INJECT FLASH CSS IF MISSING ─── */
-(function(){
-  if(!document.getElementById('pg-flash-style')){
-    var st=document.createElement('style');
-    st.id='pg-flash-style';
-    st.textContent='.event-flash{position:fixed;inset:0;pointer-events:none;z-index:999;opacity:0;animation:pgflash 0.5s ease-out forwards;}'
-      +'@keyframes pgflash{0%{opacity:0.18;}100%{opacity:0;}}'
-      +'.flash-red{background:rgba(204,68,68,0.25);}'
-      +'.flash-green{background:rgba(58,170,106,0.18);}';
-    document.head.appendChild(st);
-  }
-})();
-
 /* ─── SAVE / LOAD ─── */
 var SAVE_KEY='plutocrat_v11_save';
 function saveGame(){
   try{
-    /* Serialize only plain data — strip function references that survive in ASSET_DEFS */
     var data=JSON.stringify(G);
     localStorage.setItem(SAVE_KEY,data);
   }catch(e){}
@@ -400,10 +382,6 @@ function loadGame(){
 }
 function clearSave(){
   try{localStorage.removeItem(SAVE_KEY);}catch(e){}
-}
-/* Autosave wrapper — call after any meaningful state mutation */
-function autosave(){
-  try{saveGame();}catch(e){}
 }
 
 /* ─── RENDER ENGINE ─── */
@@ -426,7 +404,6 @@ function render(){
     endmonth:rEnd,win:rWin,
     identity_shift:rIdentityShift,consolidation:rConsolidation,borrow:rBorrow,
     scenario:rScenario,scenario_outcome:rScenarioOutcome,
-    legend:rLegend,
     survival:rSurvival,bankruptcy:rBankruptcy
   };
   if(map[G.screen])map[G.screen](s);
@@ -437,8 +414,6 @@ function render(){
 ─────────────────────────────────────────── */
 
 function rTitle(s){
-  var hasSave=false;
-  try{hasSave=!!localStorage.getItem(SAVE_KEY);}catch(e){}
   s.innerHTML='<div class="hero">'
     +'<div class="big">PLUTOCRAT</div>'
     +'<div class="tagline">by Billionaire by 20</div>'
@@ -449,8 +424,7 @@ function rTitle(s){
     +'</div>'
     +'<div style="font-size:11px;color:var(--text3);margin-bottom:32px;line-height:1.8">Location: <span style="color:var(--gold)">'+LOC.country+(LOC.city&&LOC.city!==LOC.country?', '+LOC.city:'')+'</span> &nbsp;&nbsp; Currency: <span style="color:var(--gold)">'+LOC.currency+'</span></div>'
     +'<div class="brow" style="justify-content:center;gap:12px">'
-    +(hasSave?'<button class="btn btn-gold" onclick="PG.continueSave()">Continue game</button>':'')
-    +'<button class="btn '+(hasSave?'btn-ghost':'btn-gold')+'" onclick="PG.start()">'+(hasSave?'New game':'Begin your ascent')+'</button>'
+    +'<button class="btn btn-gold" onclick="PG.start()">Begin your ascent</button>'
     +'<button class="btn btn-ghost" onclick="PG.changeLoc()">Change location</button>'
     +'</div></div>';
 }
@@ -636,29 +610,7 @@ function rGame(s){
   /* Notices */
   if(win&&win.tier<=3&&!G.consolidationPhase)h+='<div class="notice ngold">WIN CONDITION MET — '+win.title+' &nbsp;<button class="btn btn-gold" onclick="PG.triggerWin()" style="padding:5px 14px;font-size:10px;margin-left:8px">Claim</button></div>';
   if(win&&win.tier===4)h+='<div class="notice ngold">LEGACY WIN — '+win.title+' &nbsp;<button class="btn btn-gold" onclick="PG.claimWin()" style="padding:5px 14px;font-size:10px;margin-left:8px">Claim</button></div>';
-  /* Dramatic first-cover moment — fire once when passive first crosses expenses */
-  if(np>0&&np>=exp&&!G.passiveFirstFireSeen&&!G.consolidationPhase){
-    G.passiveFirstFireSeen=true;
-    h+='<div class="passive-cover-moment" id="pcm">'
-      +'<div class="pcm-inner">'
-      +'<div class="pcm-pre">The moment you have been building toward</div>'
-      +'<div class="pcm-headline">Your assets now cover<br>every expense you have.</div>'
-      +'<div class="pcm-numbers">'
-      +'<div class="pcm-num"><div class="pcm-num-label">Passive income</div><div class="pcm-num-val g">'+fmt(np)+'/mo</div></div>'
-      +'<div class="pcm-num"><div class="pcm-num-label">Total expenses</div><div class="pcm-num-val r">'+fmt(exp)+'/mo</div></div>'
-      +'<div class="pcm-num"><div class="pcm-num-label">Coverage</div><div class="pcm-num-val" style="color:var(--gold)">'+Math.round((np/Math.max(1,exp))*100)+'%</div></div>'
-      +'</div>'
-      +'<div class="pcm-body">'
-      +'You did not ask for permission.<br>'
-      +'You did not wait for the right moment.<br>'
-      +'You built, month by month, until the machines outearnred the man.<br><br>'
-      +'<em>This is what financial freedom looks like from the inside.</em>'
-      +'</div>'
-      +'<button class="btn btn-gold" onclick="PG.dismissPassiveMoment()" style="font-size:13px;padding:14px 40px;letter-spacing:2px;margin-top:8px">I understand what I have built</button>'
-      +'</div></div>';
-  } else if(np>0&&np>=exp&&!win&&!G.consolidationPhase){
-    h+='<div class="notice ngreen">'+G.playerName+', passive income covers all expenses. You could stop working today.</div>';
-  }
+  if(np>0&&np>=exp&&!win&&!G.consolidationPhase)h+='<div class="notice ngreen">'+G.playerName+', passive income covers all expenses. You could stop working today.</div>';
   if(G.consolidationPhase&&G.consecutivePassiveCoverageMonths>0)h+='<div class="notice ngold">Consolidation: '+G.consecutivePassiveCoverageMonths+'/3 months of 3x passive coverage achieved.</div>';
   if(ft===0)h+='<div class="notice nred">0 free time. Fully trapped. Delegate immediately.</div>';
   if(ft>0&&ft<=8)h+='<div class="notice nred">Only '+ft+' free time units. Deal-making is restricted. Delegate to free up time.</div>';
@@ -903,31 +855,6 @@ function rBuy(s){
     h+='</div>';
   });
 
-  /* ── Dealmaker-only: passive income from reputation ── */
-  if(G.profile==='dealmaker'&&typeof DEALMAKER_PASSIVE_DEALS!=='undefined'){
-    var dmAvailable=DEALMAKER_PASSIVE_DEALS.filter(function(d){return d.condition(G);});
-    if(dmAvailable.length>0){
-      h+='<div class="sec" style="margin-top:18px"><span class="bucket-label bucket-cf">Dealmaker</span> &nbsp;Convert your reputation into recurring passive income</div>';
-      h+='<div class="sgrid">';
-      dmAvailable.forEach(function(item){
-        var owned=G.assets.find(function(a){return a.id===item.id&&!a.newThisMonth;});
-        var sc_inc=sc(item.income);var sc_exp=sc(item.expense);var sc_net=sc_inc-sc_exp;
-        var repOk=G.reputation>=item.repReq;
-        var timeOk=freeTime()>=item.time;
-        var canBuy=repOk&&timeOk;
-        h+='<div class="scard'+(canBuy?'':' sdim')+'" onclick="'+(canBuy?'PG.buyAsset(\''+item.id+'\',0,'+item.time+','+sc_inc+','+sc_exp+',\''+item.type+'\',\''+item.name.replace(/'/g,"\\'")+'\','+item.repeatable+',\''+item.bucket+'\')':'')+'">'
-          +'<div class="sname">'+item.name+'<span class="stag tag-cf">passive</span>'+(owned&&item.repeatable?' x'+(owned.count||1):'')+'</div>'
-          +'<div class="scost">No upfront cost — reputation currency</div>'
-          +'<div style="font-size:10px;color:var(--purple);margin-bottom:4px">Requires: Rep '+item.repReq+' · '+item.time+' time units</div>'
-          +'<div class="sinc">+'+fmt(sc_inc)+'/mo income</div>'
-          +'<div class="sexp">−'+fmt(sc_exp)+'/mo costs</div>'
-          +'<div class="snet" style="color:'+(sc_net>0?'var(--green)':'var(--red)')+'">'+fmtS(sc_net)+' net/mo</div>'
-          +'<div class="sdesc">'+item.desc+'</div></div>';
-      });
-      h+='</div>';
-    }
-  }
-
   h+='<div class="sec" style="margin-top:18px">Liabilities — things that cost you every month</div><div class="sgrid">';
   LIABILITIES.forEach(function(item){
     var owned=G.liabilities.find(function(l){return l.id===item.id;});
@@ -964,16 +891,6 @@ function rBuy(s){
 
 function rDeals(s){
   var ft=freeTime();
-  var filter=G.dealFilter||'all';
-  var cats={};
-  DEALS.forEach(function(d){if(!cats[d.cat])cats[d.cat]=[];cats[d.cat].push(d);});
-  var allCats=Object.keys(cats);
-
-  /* Count available deals for badge */
-  var availCount=DEALS.filter(function(d){
-    return G.reputation>=d.repReq&&ft>=d.time&&dealPrereqMet(d);
-  }).length;
-
   var h='<div class="ch" style="font-size:18px;margin-bottom:6px">Make a deal</div>'
     +'<div style="font-size:12px;color:var(--text3);margin-bottom:14px">You make money connecting value — not owning it. Reputation is everything.</div>'
     +'<div class="hud hud3" style="margin-bottom:14px">'
@@ -983,29 +900,11 @@ function rDeals(s){
     +'</div>'
     +'<div class="notice npurple">Failed deals cost reputation only — not money. Build reputation by closing small deals first.</div>';
 
-  /* Filter bar */
-  h+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;align-items:center">'
-    +'<span style="font-size:10px;color:var(--text3);letter-spacing:2px;text-transform:uppercase;margin-right:4px">Filter:</span>'
-    +'<button class="btn '+(filter==='all'?'btn-purple':'btn-ghost')+'" style="padding:6px 14px;font-size:10px" onclick="PG.setDealFilter(\'all\')">All ('+DEALS.length+')</button>'
-    +'<button class="btn '+(filter==='available'?'btn-green':'btn-ghost')+'" style="padding:6px 14px;font-size:10px" onclick="PG.setDealFilter(\'available\')">Available now ('+availCount+')</button>'
-    +allCats.map(function(cat){
-      var catCount=cats[cat].length;
-      return '<button class="btn '+(filter===cat?'btn-gold':'btn-ghost')+'" style="padding:6px 14px;font-size:10px" onclick="PG.setDealFilter(\''+cat+'\')">'+cat+' ('+catCount+')</button>';
-    }).join('')
-    +'</div>';
-
-  var catsToShow=filter==='all'||filter==='available'?allCats:[filter];
-  var anyShown=false;
-
-  catsToShow.forEach(function(cat){
-    var deals=cats[cat]||[];
-    if(filter==='available'){
-      deals=deals.filter(function(d){return G.reputation>=d.repReq&&ft>=d.time&&dealPrereqMet(d);});
-    }
-    if(!deals.length)return;
-    anyShown=true;
+  var cats={};
+  DEALS.forEach(function(d){if(!cats[d.cat])cats[d.cat]=[];cats[d.cat].push(d);});
+  Object.keys(cats).forEach(function(cat){
     h+='<div class="sec">'+cat+'</div>';
-    deals.forEach(function(deal){
+    cats[cat].forEach(function(deal){
       var repLocked=G.reputation<deal.repReq;
       var timeLocked=ft<deal.time;
       var prereqLocked=!dealPrereqMet(deal);
@@ -1027,14 +926,6 @@ function rDeals(s){
         +'</div>';
     });
   });
-
-  if(!anyShown){
-    h+='<div style="text-align:center;padding:32px 20px;color:var(--text3);font-size:12px;font-style:italic">'
-      +'No deals match this filter right now.<br>'
-      +(filter==='available'?'Build reputation or free up time to unlock more deals.':'')
-      +'</div>';
-  }
-
   h+='<div class="brow"><button class="btn btn-ghost" onclick="PG.goGame()">Back to board</button></div>';
   s.innerHTML=h;
 }
@@ -1186,20 +1077,6 @@ function rBorrow(s){
   s.innerHTML=h;
 }
 
-/* ─── LEGEND EVENT CHECK ─── */
-function checkLegend(){
-  if(!LEGEND_EVENTS||!LEGEND_EVENTS.length)return null;
-  if(G.monthsPlayed<8)return null;
-  /* Fire at most one legend per game, spaced at least 5 months apart */
-  var lastLeg=G.lastLegendMonth||0;
-  if(G.monthsPlayed-lastLeg<5)return null;
-  var eligible=LEGEND_EVENTS.filter(function(l){return G.legendFired.indexOf(l.id)===-1;});
-  if(!eligible.length)return null;
-  /* 25% chance each eligible month */
-  if(Math.random()>0.25)return null;
-  return eligible[Math.floor(Math.random()*eligible.length)];
-}
-
 /* ─── SCENARIO SCREEN ─── */
 function rScenario(s){
   var sc_obj=G.pendingScenario;if(!sc_obj){G.screen='game';render();return;}
@@ -1233,20 +1110,6 @@ function rScenarioOutcome(s){
     +'</div>'
     +'<div class="brow"><button class="btn btn-gold" onclick="PG.finishScenario()">Continue</button></div>';
   s.innerHTML=h;
-}
-
-/* ─── LEGEND EVENT SCREEN ─── */
-function rLegend(s){
-  var leg=G.pendingLegend;if(!leg){G.screen='game';render();return;}
-  s.innerHTML='<div class="ch" style="font-size:11px;letter-spacing:3px;margin-bottom:18px">A moment worth remembering — Y'+G.year+' M'+G.month+'</div>'
-    +'<div class="ecard legend" style="text-align:center">'
-    +'<div class="etype legend">LEGEND</div>'
-    +'<div class="etitle">'+leg.title+'</div>'
-    +'<div class="ebody">'+leg.body+'</div>'
-    +'<div class="eeffect eneu" style="margin-bottom:16px">'+leg.effectLabel+'</div>'
-    +'<div class="outcome-lesson" style="font-size:12px;color:var(--text3);font-style:italic;line-height:1.8;border-top:1px solid var(--border);padding-top:14px;margin-top:4px"><em>The lesson:</em> '+leg.lesson+'</div>'
-    +'</div>'
-    +'<div class="brow"><button class="btn btn-gold" onclick="PG.acknowledgeLegend()">Carry this forward</button></div>';
 }
 
 /* ─── SURVIVAL SCREEN ─── */
@@ -1391,11 +1254,6 @@ window.PG={
   toGrocery:function(){if(!G.housing)return;G.screen='setup_grocery';render();},
   setGrocery:function(id){G.grocery=LOC.groceries.find(function(g){return g.id===id;});render();},
 
-  continueSave:function(){
-    if(loadGame()){render();}
-    else{showModal('No save found','Could not load save data. Starting a new game.',[{label:'OK',cls:'btn-ghost',fn:'PG.closeModal();PG.start();'}]);}
-  },
-
   startGame:function(){
     if(!G.grocery)return;
     G.expenses=[];G.assets=[];G.liabilities=[];G.carriedExpenses=[];
@@ -1412,23 +1270,20 @@ window.PG={
         income:sc(8000),expense:sc(1500),time:0,count:1,newThisMonth:false,monthsOwned:0});
     }
     shuffleDeck();recalc();
-    G.blackSwanMonth=6; /* First year always month 6, then randomised */
     addLog('Game started. '+G.playerName+', '+prof().name+', '+LOC.country+'.');
-    G.screen='game';autosave();render();
+    G.screen='game';render();
   },
 
   /* Board navigation */
   goGame:function(){G.screen='game';render();},
   toggleLog:function(){G.showFullLog=!G.showFullLog;render();},
-  dismissTutorial:function(){G.tutorialDismissed=true;render();},
-  dismissPassiveMoment:function(){autosave();render();},
+dismissTutorial:function(){G.tutorialDismissed=true;render();},
   goBorrow:function(){G.screen='borrow';render();},
   goBuy:function(){G.screen='buy';render();},
   goDeals:function(){
     if(freeTime()<1){showModal('No free time','Delegate tasks first to free up time for deals.',[{label:'OK',cls:'btn-ghost',fn:'PG.closeModal();'}]);return;}
     G.screen='deals';render();
   },
-  setDealFilter:function(f){G.dealFilter=f;render();},
   goCollect:function(){
     if(!G.monthIncomes)G.monthIncomes=buildMonthIncomes();
     if(G.hasManager){
@@ -1534,17 +1389,13 @@ window.PG={
   },
   changeHousing:function(id){
     G.housing=LOC.housing.find(function(h){return h.id===id;});
-    var spike=G.blackSwanExpenseSpike||0;var inf=G.inflationFactor||1;
-    var adjCost=Math.round(G.housing.cost*(1+spike)*inf);
-    if(G.monthExpenses){var he=G.monthExpenses.find(function(e){return e.id==='housing';});if(he){he.label='Rent — '+G.housing.name;he.amount=adjCost;he.done=false;}}
-    addLog('Housing changed: '+G.housing.name+'. '+fmt(adjCost)+'/mo.');render();
+    if(G.monthExpenses){var he=G.monthExpenses.find(function(e){return e.id==='housing';});if(he){he.label='Rent — '+G.housing.name;he.amount=G.housing.cost;he.done=false;}}
+    addLog('Housing changed: '+G.housing.name+'. '+fmt(G.housing.cost)+'/mo.');render();
   },
   changeGrocery:function(id){
     G.grocery=LOC.groceries.find(function(g){return g.id===id;});
-    var spike=G.blackSwanExpenseSpike||0;var inf=G.inflationFactor||1;
-    var adjCost=Math.round(G.grocery.cost*(1+spike)*inf);
-    if(G.monthExpenses){var ge=G.monthExpenses.find(function(e){return e.id==='grocery';});if(ge){ge.label='Groceries — '+G.grocery.name;ge.amount=adjCost;ge.done=false;}}
-    addLog('Groceries changed: '+G.grocery.name+'. '+fmt(adjCost)+'/mo.');render();
+    if(G.monthExpenses){var ge=G.monthExpenses.find(function(e){return e.id==='grocery';});if(ge){ge.label='Groceries — '+G.grocery.name;ge.amount=G.grocery.cost;ge.done=false;}}
+    addLog('Groceries changed: '+G.grocery.name+'. '+fmt(G.grocery.cost)+'/mo.');render();
   },
 
   /* Mortgage */
@@ -1643,24 +1494,14 @@ window.PG={
   },
   passMonth:function(){
     if(!canPass()){PG.passBlocked();return;}
-    /* Check for legend event (rare, high-impact narrative moment) */
-    var legCheck=checkLegend();
-    if(legCheck){
-      G.pendingLegend=legCheck;
-      G.legendFired.push(legCheck.id);
-      G.lastLegendMonth=G.monthsPlayed;
-      if(legCheck.effect)legCheck.effect(G);
-      G.screen='legend';render();return;
-    }
     /* Check for scenario trigger */
     var sc_check=checkScenario();
     if(sc_check){
       G.pendingScenario=sc_check;
       G.screen='scenario';render();return;
     }
-    /* Draw event card — black swan fires on randomised month (default month 6 year 1, then random) */
-    var bsMonth=G.blackSwanMonth||6;
-    if(G.month===bsMonth&&!G.blackSwanDrawnThisYear){
+    /* Draw event card */
+    if(G.month===6&&!G.blackSwanDrawnThisYear){
       G.blackSwanDrawnThisYear=true;
       G.eventCard=drawBlackSwan();
     } else {
@@ -1675,7 +1516,6 @@ window.PG={
     if(G.eventCard&&G.eventCard.fn)G.eventCard.fn(G);
     G.delegDiscount=false;G.opmDiscount=false;
     G._lastSettleResult=settleMonth();
-    autosave();
     /* FIX: check for cash shortage after settle — route to survival if needed */
     if(checkCashShortage()){G.screen='survival';render();return;}
     G.screen='endmonth';
@@ -1690,25 +1530,14 @@ window.PG={
     }
     G.delegDiscount=false;G.opmDiscount=false;
     G._lastSettleResult=settleMonth();
-    autosave();
     /* FIX: check for cash shortage after settle — route to survival if needed */
     if(checkCashShortage()){G.screen='survival';render();return;}
     G.screen='endmonth';
     render();
   },
 
-  acknowledgeLegend:function(){
-    G.pendingLegend=null;
-    /* After legend, check for scenario then draw event normally */
-    var sc_check=checkScenario();
-    if(sc_check){G.pendingScenario=sc_check;G.screen='scenario';render();return;}
-    var bsMonth=G.blackSwanMonth||6;
-    if(G.month===bsMonth&&!G.blackSwanDrawnThisYear){
-      G.blackSwanDrawnThisYear=true;G.eventCard=drawBlackSwan();
-    } else {G.eventCard=drawCard();}
-    var hasSmartResp=G.eventCard&&EVENT_RESPONSES[G.eventCard.title];
-    G.screen=hasSmartResp?'smart_response':'event';render();
-  },
+  /* Scenario actions */
+  chooseScenario:function(scenId,choiceId){
     var sc_obj=DEAL_SCENARIOS.find(function(x){return x.id===scenId;});
     if(!sc_obj)return;
     G.scenariosFired.push(scenId);
@@ -1721,8 +1550,7 @@ window.PG={
   finishScenario:function(){
     G.pendingScenario=null;G.pendingOutcome=null;
     /* Now draw regular event */
-    var bsMonth=G.blackSwanMonth||6;
-    if(G.month===bsMonth&&!G.blackSwanDrawnThisYear){
+    if(G.month===6&&!G.blackSwanDrawnThisYear){
       G.blackSwanDrawnThisYear=true;
       G.eventCard=drawBlackSwan();
     } else {
@@ -1814,15 +1642,8 @@ window.PG={
 
   /* Next month */
   nextMonth:function(){
-    if(G.month>=12){
-      G.month=1;G.year++;G.blackSwanDrawnThisYear=false;
-      /* Randomise black swan month for next year (anywhere from month 3 to 10) */
-      G.blackSwanMonth=3+Math.floor(Math.random()*8);
-    }
+    if(G.month>=12){G.month=1;G.year++;G.blackSwanDrawnThisYear=false;}
     else{G.month++;}
-
-    /* FIX: reset lifestyle temptation per year so it can fire again if ratio stays high */
-    if(G.month===1)G.lifestyleTemptationShown=false;
 
     /* Mortgage foreclosure check */
     G.assets.forEach(function(a){
@@ -1863,12 +1684,11 @@ window.PG={
 
     G.monthIncomes=null;G.monthExpenses=null;G.eventCard=null;
     G.lifestyleTemptationPending=false;G.lifestyleTemptationShown=false;
-    recalc();G.screen='game';autosave();render();
+    recalc();G.screen='game';render();
   },
 
   /* Reset */
   reset:function(){
-    clearSave();
     Object.assign(G,{
       screen:'title',playerName:'',profile:null,month:1,year:1,cash:0,
       expenses:[],assets:[],liabilities:[],log:[],eventDeck:[],usedEvents:[],eventCard:null,
@@ -1878,13 +1698,10 @@ window.PG={
       dealsDoneByCategory:{},dealsDoneById:[],carriedExpenses:[],
       disciplineScore:0,taxRate:30,loanAmount:0,loanMonthlyPayment:0,
       identityShiftShown:false,lifestyleTemptationPending:false,lifestyleTemptationShown:false,
-      blackSwanDrawnThisYear:false,blackSwanExpenseSpike:0,blackSwanMonth:6,
+      blackSwanDrawnThisYear:false,blackSwanExpenseSpike:0,
       consolidationPhase:false,consecutivePassiveCoverageMonths:0,inflationFactor:1,
-      managerMonthlySalary:0,
-      scenariosFired:[],pendingScenario:null,survivalStep:0,bankruptcyLog:[],lastScenarioMonth:0,
-      tutorialDismissed:false,showFullLog:false,dealFilter:'all',   /* FIX: reset UI state too */
-      _lastSettleResult:null,passiveFirstFireSeen:false,
-      legendFired:[],lastLegendMonth:0,pendingLegend:null
+      hasManager:false,managerMonthlySalary:0,
+      scenariosFired:[],pendingScenario:null,survivalStep:0,bankruptcyLog:[],lastScenarioMonth:0
     });
     render();
   }
