@@ -1395,6 +1395,8 @@ window.PG={
     if(loadGame()){render();}
     else{showModal('No save found','Could not load save data. Starting a new game.',[{label:'OK',cls:'btn-ghost',fn:'PG.closeModal();PG.start();'}]);}
   },
+
+  startGame:function(){
     if(!G.grocery)return;
     G.expenses=[];G.assets=[];G.liabilities=[];G.carriedExpenses=[];
     G.dealsDoneByCategory={};G.dealsDoneById=[];
