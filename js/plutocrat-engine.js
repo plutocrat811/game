@@ -661,8 +661,11 @@ function rGame(s){
 
   /* Log */
   if(G.log.length){
-    h+='<div class="sec">Activity log</div><div class="log">';
-    G.log.slice(0,5).forEach(function(l){h+='<div class="logline">'+l+'</div>';});
+    var showAll=G.showFullLog;
+    h+='<div class="sec">Activity log'
+      +(G.log.length>5?'<span style="float:right;font-size:10px;color:var(--text3);cursor:pointer;font-weight:400" onclick="PG.toggleLog()">'+(showAll?'Show less ▲':'Show all ('+G.log.length+') ▼')+'</span>':'')
+      +'</div><div class="log">';
+    (showAll?G.log:G.log.slice(0,5)).forEach(function(l){h+='<div class="logline">'+l+'</div>';});
     h+='</div>';
   }
 
