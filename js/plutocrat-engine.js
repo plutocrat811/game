@@ -45,6 +45,14 @@ function sc(n){var r=RATES[getCurCode()]||1;return Math.round(n*r);}
 function fmt(n){return LOC.currency+Math.abs(Math.round(n)).toLocaleString();}
 function fmtS(n){return(n<0?'−':'+')+ LOC.currency+Math.abs(Math.round(n)).toLocaleString();}
 
+/* ─── EXPOSE HELPERS TO GLOBAL SCOPE ─── */
+/* Data file functions (sellVal, effect, damage) are defined outside the IIFE  */
+/* and need sc(), netPassive(), totalExp(), recalc() at call time. Expose on window. */
+window.sc=function(n){return sc(n);};
+window.netPassive=function(){return netPassive();};
+window.totalExp=function(){return totalExp();};
+window.recalc=function(){return recalc();};
+
 /* ─── GAME STATE ─── */
 var G={
   screen:'title',playerName:'',profile:null,
