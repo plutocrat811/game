@@ -359,6 +359,31 @@ function managerAutoPayExpenses(){
   });
 }
 
+/* ─── SAVE / LOAD ─── */
+var SAVE_KEY='plutocrat_v11_save';
+function saveGame(){
+  try{
+    var data=JSON.stringify(G);
+    localStorage.setItem(SAVE_KEY,data);
+  }catch(e){}
+}
+function loadGame(){
+  try{
+    var data=localStorage.getItem(SAVE_KEY);
+    if(!data)return false;
+    var saved=JSON.parse(data);
+    /* Don't restore mid-event or mid-survival screens — return to game board */
+    var safeScreens=['game','collect','pay_expenses','buy','deals','borrow','endmonth','win','bankruptcy'];
+    if(safeScreens.indexOf(saved.screen)===-1)saved.screen='game';
+    Object.assign(G,saved);
+    recalc();
+    return true;
+  }catch(e){return false;}
+}
+function clearSave(){
+  try{localStorage.removeItem(SAVE_KEY);}catch(e){}
+}
+
 /* ─── RENDER ENGINE ─── */
 function render(){
   var tr=gel('tright');
