@@ -132,7 +132,7 @@ function shuffleDeck(){
   G.eventDeck=d;G.usedEvents=[];
 }
 function drawCard(){
-  if(!G.eventDeck.length){G.eventDeck=G.usedEvents.slice();G.usedEvents=[];shuffleDeck();}
+  if(!G.eventDeck.length){shuffleDeck();}
   var c=G.eventDeck.pop();G.usedEvents.push(c);return c;
 }
 function drawBlackSwan(){
@@ -199,7 +199,7 @@ function settleMonth(){
   var newCarried=[];
   if(G.monthExpenses){
     G.monthExpenses.forEach(function(item){
-      if(!item.done&&!item.mandatory){
+      if((!item.done||item.skipped)&&!item.mandatory){
         var monthsSkipped=(item.skippedMonths||0)+1;
         var lateFee=monthsSkipped>=2?Math.round(item.amount*0.1):0;
         var carriedAmt=item.amount+lateFee;
@@ -1240,7 +1240,7 @@ window.PG={
   skipOne:function(idx){
     var item=G.monthExpenses&&G.monthExpenses[idx];
     if(!item||item.done||item.mandatory)return;
-    item.done=true;item.skippedMonths=(item.skippedMonths||0)+1;
+    item.done=true;item.skipped=true;item.skippedMonths=(item.skippedMonths||0)+1;
     addLog('Skipped: '+item.label+' — carries to next month.');render();
   },
 
@@ -1329,7 +1329,7 @@ window.PG={
        {label:'Keep manager',cls:'btn-ghost',fn:'PG.closeModal();'}]);
   },
   confirmFireManager:function(){
-    G.hasManager=false;
+    G.hasManager=false;G.timeUsed=Math.min(24,G.timeUsed+3);
     addLog('Manager fired. Monthly salary saved: '+fmt(G.managerMonthlySalary)+'/mo.');
     G.managerMonthlySalary=0;
     /* Remove manager salary from current month expenses if present */
