@@ -1711,6 +1711,7 @@ dismissTutorial:function(){G.tutorialDismissed=true;render();},
 
 /* ─── INIT ─── */
 function init(){
+  if(loadGame()){render();return;}
   detectLocation(function(success){
     G.screen=success?'title':'setup_loc';
     render();
