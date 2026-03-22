@@ -360,13 +360,18 @@ function managerAutoPayExpenses(){
 }
 
 /* ─── SAVE / LOAD ─── */
+  
 var SAVE_KEY='plutocrat_v11_save';
 function saveGame(){
   try{
-    var data=JSON.stringify(G);
-    localStorage.setItem(SAVE_KEY,data);
+    var saveable=JSON.parse(JSON.stringify(G,function(key,val){
+      if(typeof val==='function')return undefined;
+      return val;
+    }));
+    localStorage.setItem(SAVE_KEY,JSON.stringify(saveable));
   }catch(e){}
 }
+  
 function loadGame(){
   try{
     var data=localStorage.getItem(SAVE_KEY);
