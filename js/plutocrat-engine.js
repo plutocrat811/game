@@ -65,11 +65,13 @@ var G={
   blackSwanDrawnThisYear:false,blackSwanExpenseSpike:0,
   consolidationPhase:false,consecutivePassiveCoverageMonths:0,inflationFactor:1,
   /* v11 additions */
-  managerMonthlySalary:0,
-  scenariosFired:[],
-  pendingScenario:null,
-  survivalStep:0,
-  bankruptcyLog:[]
+  managerMonthlySalary:0,    /* mandatory monthly expense when manager hired */
+  scenariosFired:[],         /* ids of scenarios already shown */
+  pendingScenario:null,      /* scenario object waiting to be shown */
+  survivalStep:0,            /* 0=none 1=liquidate 2=mortgage 3=bankrupt */
+  bankruptcyLog:[],          /* copy of log at bankruptcy for display */
+  legendFired:[],            /* ids of legend events already shown */
+  passiveFirstFireSeen:false /* dramatic passive income moment shown */
 };
 
 /* ─── HELPERS ─── */
@@ -119,7 +121,7 @@ function checkLifestyleTemptation(){
 function checkWin(){
   var exp=totalExp();recalc();var mp=G.monthsPlayed;var np=netPassive();
   if(G.consolidationPhase&&G.consecutivePassiveCoverageMonths>=3&&np>=exp*3)return WINS[3];
-  if(np>0&&np>=exp&&freeTime()>=20&&mp>=5)return WINS[2];
+  if(np>0&&np>=exp&&freeTime()>=18&&mp>=5)return WINS[2];  /* FIX: 20 was unreachable; 18 allows delegation path */
   if(G.cash>=sc(1000000))return WINS[1];
   if(np>0&&np>=exp&&mp>=3)return WINS[0];
   return null;
@@ -141,20 +143,25 @@ function drawBlackSwan(){
 
 /* ─── SCENARIO CHECK ─── */
 function checkScenario(){
+  /* Returns first eligible scenario not yet fired, or null */
   for(var i=0;i<DEAL_SCENARIOS.length;i++){
     var sc_obj=DEAL_SCENARIOS[i];
     if(G.scenariosFired.indexOf(sc_obj.id)>-1)continue;
     if(G.month<(sc_obj.minMonth||1))continue;
     if(sc_obj.profiles.indexOf('all')===-1&&sc_obj.profiles.indexOf(G.profile)===-1)continue;
+    /* Fire at most one per 3 months and only when player has some assets or cash stake */
     var lastFired=G.scenariosFired.length;
-    if(lastFired>0&&G.monthsPlayed-G.lastScenarioMonth<3)continue;
+    if(lastFired>0&&G.monthsPlayed-(G.lastScenarioMonth||0)<3)continue;
     if(G.cash<sc(20000)&&G.assets.length===0)continue;
+    /* FIX: stamp lastScenarioMonth here so a scenario shown-but-not-chosen doesn't re-fire next month */
+    G.lastScenarioMonth=G.monthsPlayed;
     return sc_obj;
   }
   return null;
 }
 
 /* ─── SETTLE MONTH — sole cash movement engine ─── */
+/* Manager marks items done only. ALL cash movement here. */
 function settleMonth(){
   recalc();
   var collectedIncome=0;
@@ -180,6 +187,7 @@ function settleMonth(){
   var totalTax=salaryTaxAmt+passiveTaxAmt;
   var net=collectedIncome+seBonus-paidExp-totalTax;
 
+  /* FIX: allow cash to go negative so checkCashShortage fires correctly */
   G.cash=G.cash+net;
 
   G.monthsPlayed++;
@@ -223,9 +231,11 @@ function settleMonth(){
 }
 
 /* ─── CASH SHORTAGE CHECK ─── */
+/* Returns true if cash shortage detected after settle. Steps through survival sequence. */
 function checkCashShortage(){
   var exp=totalExp();
   if(G.cash<0||(G.cash===0&&exp>0)){
+    /* Find cheapest non-mortgaged sellable asset */
     var sellable=G.assets.filter(function(a){
       return !a.newThisMonth&&a.type!=='delegation'&&!a.mortgage;
     });
@@ -234,6 +244,7 @@ function checkCashShortage(){
       G.survivalStep=1;
       G.survivalAsset=sellable[0];
     } else {
+      /* Check for mortgageable assets */
       var mortgageable=G.assets.filter(function(a){
         return !a.newThisMonth&&a.type==='real estate'&&!a.mortgage;
       });
@@ -313,6 +324,7 @@ function buildMonthExpenses(){
   G.assets.forEach(function(a,i){
     if(!a.newThisMonth&&a.expense>0)
       list.push({id:'asset_exp_'+i,label:a.name+' — maintenance / fees',amount:adj(a.expense),type:'asset expense',locked:false,mandatory:false,done:false,skippedMonths:0});
+    /* Mortgage payment as mandatory expense */
     if(!a.newThisMonth&&a.mortgage){
       list.push({id:'mortgage_'+i,label:a.name+' — mortgage payment',amount:adj(a.mortgage.monthlyPayment),type:'mortgage',locked:true,mandatory:true,done:false,skippedMonths:0,isMortgage:true,assetIdx:i});
     }
@@ -334,6 +346,7 @@ function allMandatoryExpDone(){
 function canPass(){return allIncomeDone()&&allMandatoryExpDone();}
 
 /* ─── MANAGER PAY WITH PRIORITY ─── */
+/* Manager pays mandatory first, then optional, stops if cash exhausted */
 function managerAutoPayExpenses(){
   if(!G.monthExpenses)G.monthExpenses=buildMonthExpenses();
   var mandatory=G.monthExpenses.filter(function(i){return i.mandatory&&!i.done;});
@@ -346,18 +359,30 @@ function managerAutoPayExpenses(){
       item.done=true;
       item.cashTaken=true;
     }
+    /* If mandatory and cannot afford — leave undone. settleMonth handles carry. */
   });
 }
+
+/* ─── INJECT FLASH CSS IF MISSING ─── */
+(function(){
+  if(!document.getElementById('pg-flash-style')){
+    var st=document.createElement('style');
+    st.id='pg-flash-style';
+    st.textContent='.event-flash{position:fixed;inset:0;pointer-events:none;z-index:999;opacity:0;animation:pgflash 0.5s ease-out forwards;}'
+      +'@keyframes pgflash{0%{opacity:0.18;}100%{opacity:0;}}'
+      +'.flash-red{background:rgba(204,68,68,0.25);}'
+      +'.flash-green{background:rgba(58,170,106,0.18);}';
+    document.head.appendChild(st);
+  }
+})();
 
 /* ─── SAVE / LOAD ─── */
 var SAVE_KEY='plutocrat_v11_save';
 function saveGame(){
   try{
-    var saveable=JSON.parse(JSON.stringify(G,function(key,val){
-      if(typeof val==='function')return undefined;
-      return val;
-    }));
-    localStorage.setItem(SAVE_KEY,JSON.stringify(saveable));
+    /* Serialize only plain data — strip function references that survive in ASSET_DEFS */
+    var data=JSON.stringify(G);
+    localStorage.setItem(SAVE_KEY,data);
   }catch(e){}
 }
 function loadGame(){
@@ -365,19 +390,20 @@ function loadGame(){
     var data=localStorage.getItem(SAVE_KEY);
     if(!data)return false;
     var saved=JSON.parse(data);
-    if(!saved.profile||!saved.playerName)return false;
+    /* Don't restore mid-event or mid-survival screens — return to game board */
     var safeScreens=['game','collect','pay_expenses','buy','deals','borrow','endmonth','win','bankruptcy'];
     if(safeScreens.indexOf(saved.screen)===-1)saved.screen='game';
     Object.assign(G,saved);
     recalc();
     return true;
-  }catch(e){
-    clearSave();
-    return false;
-  }
+  }catch(e){return false;}
 }
 function clearSave(){
   try{localStorage.removeItem(SAVE_KEY);}catch(e){}
+}
+/* Autosave wrapper — call after any meaningful state mutation */
+function autosave(){
+  try{saveGame();}catch(e){}
 }
 
 /* ─── RENDER ENGINE ─── */
@@ -400,12 +426,10 @@ function render(){
     endmonth:rEnd,win:rWin,
     identity_shift:rIdentityShift,consolidation:rConsolidation,borrow:rBorrow,
     scenario:rScenario,scenario_outcome:rScenarioOutcome,
+    legend:rLegend,
     survival:rSurvival,bankruptcy:rBankruptcy
   };
   if(map[G.screen])map[G.screen](s);
-  /* Auto-save after every render except setup screens */
-  var setupScreens2=['title','setup_loc','setup_name','setup_profile','setup_housing','setup_grocery'];
-  if(setupScreens2.indexOf(G.screen)===-1)saveGame();
 }
 
 /* ─────────────────────────────────────────
@@ -413,6 +437,8 @@ function render(){
 ─────────────────────────────────────────── */
 
 function rTitle(s){
+  var hasSave=false;
+  try{hasSave=!!localStorage.getItem(SAVE_KEY);}catch(e){}
   s.innerHTML='<div class="hero">'
     +'<div class="big">PLUTOCRAT</div>'
     +'<div class="tagline">by Billionaire by 20</div>'
@@ -423,7 +449,8 @@ function rTitle(s){
     +'</div>'
     +'<div style="font-size:11px;color:var(--text3);margin-bottom:32px;line-height:1.8">Location: <span style="color:var(--gold)">'+LOC.country+(LOC.city&&LOC.city!==LOC.country?', '+LOC.city:'')+'</span> &nbsp;&nbsp; Currency: <span style="color:var(--gold)">'+LOC.currency+'</span></div>'
     +'<div class="brow" style="justify-content:center;gap:12px">'
-    +'<button class="btn btn-gold" onclick="PG.start()">Begin your ascent</button>'
+    +(hasSave?'<button class="btn btn-gold" onclick="PG.continueSave()">Continue game</button>':'')
+    +'<button class="btn '+(hasSave?'btn-ghost':'btn-gold')+'" onclick="PG.start()">'+(hasSave?'New game':'Begin your ascent')+'</button>'
     +'<button class="btn btn-ghost" onclick="PG.changeLoc()">Change location</button>'
     +'</div></div>';
 }
@@ -609,7 +636,29 @@ function rGame(s){
   /* Notices */
   if(win&&win.tier<=3&&!G.consolidationPhase)h+='<div class="notice ngold">WIN CONDITION MET — '+win.title+' &nbsp;<button class="btn btn-gold" onclick="PG.triggerWin()" style="padding:5px 14px;font-size:10px;margin-left:8px">Claim</button></div>';
   if(win&&win.tier===4)h+='<div class="notice ngold">LEGACY WIN — '+win.title+' &nbsp;<button class="btn btn-gold" onclick="PG.claimWin()" style="padding:5px 14px;font-size:10px;margin-left:8px">Claim</button></div>';
-  if(np>0&&np>=exp&&!win&&!G.consolidationPhase)h+='<div class="notice ngreen">'+G.playerName+', passive income covers all expenses. You could stop working today.</div>';
+  /* Dramatic first-cover moment — fire once when passive first crosses expenses */
+  if(np>0&&np>=exp&&!G.passiveFirstFireSeen&&!G.consolidationPhase){
+    G.passiveFirstFireSeen=true;
+    h+='<div class="passive-cover-moment" id="pcm">'
+      +'<div class="pcm-inner">'
+      +'<div class="pcm-pre">The moment you have been building toward</div>'
+      +'<div class="pcm-headline">Your assets now cover<br>every expense you have.</div>'
+      +'<div class="pcm-numbers">'
+      +'<div class="pcm-num"><div class="pcm-num-label">Passive income</div><div class="pcm-num-val g">'+fmt(np)+'/mo</div></div>'
+      +'<div class="pcm-num"><div class="pcm-num-label">Total expenses</div><div class="pcm-num-val r">'+fmt(exp)+'/mo</div></div>'
+      +'<div class="pcm-num"><div class="pcm-num-label">Coverage</div><div class="pcm-num-val" style="color:var(--gold)">'+Math.round((np/Math.max(1,exp))*100)+'%</div></div>'
+      +'</div>'
+      +'<div class="pcm-body">'
+      +'You did not ask for permission.<br>'
+      +'You did not wait for the right moment.<br>'
+      +'You built, month by month, until the machines outearnred the man.<br><br>'
+      +'<em>This is what financial freedom looks like from the inside.</em>'
+      +'</div>'
+      +'<button class="btn btn-gold" onclick="PG.dismissPassiveMoment()" style="font-size:13px;padding:14px 40px;letter-spacing:2px;margin-top:8px">I understand what I have built</button>'
+      +'</div></div>';
+  } else if(np>0&&np>=exp&&!win&&!G.consolidationPhase){
+    h+='<div class="notice ngreen">'+G.playerName+', passive income covers all expenses. You could stop working today.</div>';
+  }
   if(G.consolidationPhase&&G.consecutivePassiveCoverageMonths>0)h+='<div class="notice ngold">Consolidation: '+G.consecutivePassiveCoverageMonths+'/3 months of 3x passive coverage achieved.</div>';
   if(ft===0)h+='<div class="notice nred">0 free time. Fully trapped. Delegate immediately.</div>';
   if(ft>0&&ft<=8)h+='<div class="notice nred">Only '+ft+' free time units. Deal-making is restricted. Delegate to free up time.</div>';
@@ -673,8 +722,10 @@ function rGame(s){
         )
         +'<div class="atime '+(a.time===0?'f':'c')+'">'+( a.time===0?'0 time':'−'+a.time+' units')+'</div>'
         +(a.newThisMonth?'':'<span class="asell" onclick="PG.sellAsset('+i+')">Sell</span>')
+        /* Mortgage button — shown on real estate not new, not already mortgaged */
         +((!a.newThisMonth&&a.type==='real estate'&&!a.mortgage)
           ?'<span class="amortgage" onclick="PG.mortgageAsset('+i+')">Mortgage</span>':'')
+        /* Repay button when mortgaged */
         +((!a.newThisMonth&&a.mortgage)
           ?'<span class="arepay" onclick="PG.repayMortgage('+i+')">Repay</span>':'')
         +'</div></div>';
@@ -712,7 +763,7 @@ function rGame(s){
   h+='<div class="sec">Actions</div><div class="brow">'
     +'<button class="btn btn-green" onclick="PG.goCollect()">Collect income'+(incDone?' ✓':'')+'</button>'
     +'<button class="btn btn-red" onclick="PG.goPayExp()">Pay expenses'+(expDone?' ✓':'')+(overdueCount>0?' ('+overdueCount+' overdue)':'')+'</button>'
-    +'<button class="btn btn-gold" onclick="PG.goBuy()" '+(buyWarning?'style="opacity:0.6;border-style:dashed"':'')+'>Buy assets'+(buyWarning?' ⚠':'')+'</button>'
+    +'<button class="btn btn-gold'+(buyWarning?' btn-dim':'')+'" onclick="PG.goBuy()">Buy assets</button>'
     +(np>0?'<button class="btn btn-blue" onclick="PG.goBorrow()">Borrow capital</button>':'')
     +(G.profile==='dealmaker'
       ?(dealLocked
@@ -829,6 +880,7 @@ function rBuy(s){
       if(G.delegDiscount&&item.type==='delegation')cost=Math.floor(cost*0.5);
       if(G.opmDiscount&&item.type!=='delegation')cost=Math.floor(cost*0.75);
 
+      /* Manager: 0 upfront, recruitment fee instead */
       var displayCost=isMgr?sc(5000):sc(cost);
       var mgrSalary=isMgr?sc(12000):0;
       var sopMaint=item.id==='build_sop'?sc(2000):0;
@@ -850,6 +902,31 @@ function rBuy(s){
     });
     h+='</div>';
   });
+
+  /* ── Dealmaker-only: passive income from reputation ── */
+  if(G.profile==='dealmaker'&&typeof DEALMAKER_PASSIVE_DEALS!=='undefined'){
+    var dmAvailable=DEALMAKER_PASSIVE_DEALS.filter(function(d){return d.condition(G);});
+    if(dmAvailable.length>0){
+      h+='<div class="sec" style="margin-top:18px"><span class="bucket-label bucket-cf">Dealmaker</span> &nbsp;Convert your reputation into recurring passive income</div>';
+      h+='<div class="sgrid">';
+      dmAvailable.forEach(function(item){
+        var owned=G.assets.find(function(a){return a.id===item.id&&!a.newThisMonth;});
+        var sc_inc=sc(item.income);var sc_exp=sc(item.expense);var sc_net=sc_inc-sc_exp;
+        var repOk=G.reputation>=item.repReq;
+        var timeOk=freeTime()>=item.time;
+        var canBuy=repOk&&timeOk;
+        h+='<div class="scard'+(canBuy?'':' sdim')+'" onclick="'+(canBuy?'PG.buyAsset(\''+item.id+'\',0,'+item.time+','+sc_inc+','+sc_exp+',\''+item.type+'\',\''+item.name.replace(/'/g,"\\'")+'\','+item.repeatable+',\''+item.bucket+'\')':'')+'">'
+          +'<div class="sname">'+item.name+'<span class="stag tag-cf">passive</span>'+(owned&&item.repeatable?' x'+(owned.count||1):'')+'</div>'
+          +'<div class="scost">No upfront cost — reputation currency</div>'
+          +'<div style="font-size:10px;color:var(--purple);margin-bottom:4px">Requires: Rep '+item.repReq+' · '+item.time+' time units</div>'
+          +'<div class="sinc">+'+fmt(sc_inc)+'/mo income</div>'
+          +'<div class="sexp">−'+fmt(sc_exp)+'/mo costs</div>'
+          +'<div class="snet" style="color:'+(sc_net>0?'var(--green)':'var(--red)')+'">'+fmtS(sc_net)+' net/mo</div>'
+          +'<div class="sdesc">'+item.desc+'</div></div>';
+      });
+      h+='</div>';
+    }
+  }
 
   h+='<div class="sec" style="margin-top:18px">Liabilities — things that cost you every month</div><div class="sgrid">';
   LIABILITIES.forEach(function(item){
@@ -887,6 +964,16 @@ function rBuy(s){
 
 function rDeals(s){
   var ft=freeTime();
+  var filter=G.dealFilter||'all';
+  var cats={};
+  DEALS.forEach(function(d){if(!cats[d.cat])cats[d.cat]=[];cats[d.cat].push(d);});
+  var allCats=Object.keys(cats);
+
+  /* Count available deals for badge */
+  var availCount=DEALS.filter(function(d){
+    return G.reputation>=d.repReq&&ft>=d.time&&dealPrereqMet(d);
+  }).length;
+
   var h='<div class="ch" style="font-size:18px;margin-bottom:6px">Make a deal</div>'
     +'<div style="font-size:12px;color:var(--text3);margin-bottom:14px">You make money connecting value — not owning it. Reputation is everything.</div>'
     +'<div class="hud hud3" style="margin-bottom:14px">'
@@ -896,11 +983,29 @@ function rDeals(s){
     +'</div>'
     +'<div class="notice npurple">Failed deals cost reputation only — not money. Build reputation by closing small deals first.</div>';
 
-  var cats={};
-  DEALS.forEach(function(d){if(!cats[d.cat])cats[d.cat]=[];cats[d.cat].push(d);});
-  Object.keys(cats).forEach(function(cat){
+  /* Filter bar */
+  h+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;align-items:center">'
+    +'<span style="font-size:10px;color:var(--text3);letter-spacing:2px;text-transform:uppercase;margin-right:4px">Filter:</span>'
+    +'<button class="btn '+(filter==='all'?'btn-purple':'btn-ghost')+'" style="padding:6px 14px;font-size:10px" onclick="PG.setDealFilter(\'all\')">All ('+DEALS.length+')</button>'
+    +'<button class="btn '+(filter==='available'?'btn-green':'btn-ghost')+'" style="padding:6px 14px;font-size:10px" onclick="PG.setDealFilter(\'available\')">Available now ('+availCount+')</button>'
+    +allCats.map(function(cat){
+      var catCount=cats[cat].length;
+      return '<button class="btn '+(filter===cat?'btn-gold':'btn-ghost')+'" style="padding:6px 14px;font-size:10px" onclick="PG.setDealFilter(\''+cat+'\')">'+cat+' ('+catCount+')</button>';
+    }).join('')
+    +'</div>';
+
+  var catsToShow=filter==='all'||filter==='available'?allCats:[filter];
+  var anyShown=false;
+
+  catsToShow.forEach(function(cat){
+    var deals=cats[cat]||[];
+    if(filter==='available'){
+      deals=deals.filter(function(d){return G.reputation>=d.repReq&&ft>=d.time&&dealPrereqMet(d);});
+    }
+    if(!deals.length)return;
+    anyShown=true;
     h+='<div class="sec">'+cat+'</div>';
-    cats[cat].forEach(function(deal){
+    deals.forEach(function(deal){
       var repLocked=G.reputation<deal.repReq;
       var timeLocked=ft<deal.time;
       var prereqLocked=!dealPrereqMet(deal);
@@ -912,7 +1017,7 @@ function rDeals(s){
         +'<span class="deal-tag" style="background:rgba(154,106,204,.12);color:var(--purple);border:1px solid rgba(154,106,204,.25)">Rep: '+deal.repReq+'</span>'
         +'<span class="deal-tag" style="background:rgba(74,138,204,.12);color:var(--blue);border:1px solid rgba(74,138,204,.25)">Time: '+deal.time+'</span>'
         +'<span class="deal-tag" style="background:rgba(58,170,106,.12);color:var(--green);border:1px solid rgba(58,170,106,.25)">'+fmt(sc(deal.min))+'–'+fmt(sc(deal.max))+'</span>'
-        +'<span class="deal-tag" style="background:rgba(201,168,76,.08);color:var(--gold);border:1px solid var(--border-gold)">'+Math.round(deal.rate*100)+'% base</span>'
+        +'<span class="deal-tag" style="background:rgba(201,168,76,.08);color:var(--gold);border:1px solid var(--border-gold)">'+Math.round(deal.rate*100)+'% success</span>'
         +(deal.prereq&&deal.prereq.length?'<span class="deal-tag" style="background:rgba(204,140,44,.1);color:var(--orange);border:1px solid rgba(204,140,44,.3)">pipeline</span>':'')
         +'</div>'
         +'<div style="font-size:11px;color:var(--text2);line-height:1.7">'+deal.desc+'</div>'
@@ -922,6 +1027,14 @@ function rDeals(s){
         +'</div>';
     });
   });
+
+  if(!anyShown){
+    h+='<div style="text-align:center;padding:32px 20px;color:var(--text3);font-size:12px;font-style:italic">'
+      +'No deals match this filter right now.<br>'
+      +(filter==='available'?'Build reputation or free up time to unlock more deals.':'')
+      +'</div>';
+  }
+
   h+='<div class="brow"><button class="btn btn-ghost" onclick="PG.goGame()">Back to board</button></div>';
   s.innerHTML=h;
 }
@@ -939,19 +1052,20 @@ function rEvent(s){
     +'<div class="eeffect '+ecls+'">'+e.effect+'</div>'
     +'</div>'
     +'<div class="brow"><button class="btn btn-gold" onclick="PG.acceptEvent()">Accept outcome</button></div>';
+  /* Visual flash for dramatic events */
   if(isBlackSwan){
     var f=document.createElement('div');
     f.className='event-flash flash-red';
     document.body.appendChild(f);
     setTimeout(function(){if(f.parentNode)f.parentNode.removeChild(f);},600);
   } else if(isOpportunity){
-    var f2=document.createElement('div');
-    f2.className='event-flash flash-green';
-    document.body.appendChild(f2);
-    setTimeout(function(){if(f2.parentNode)f2.parentNode.removeChild(f2);},400);
+    var f=document.createElement('div');
+    f.className='event-flash flash-green';
+    document.body.appendChild(f);
+    setTimeout(function(){if(f.parentNode)f.parentNode.removeChild(f);},400);
   }
 }
-
+  
 /* ─── SMART RESPONSE SCREEN ─── */
 function rSmartResponse(s){
   var e=G.eventCard;
@@ -1072,6 +1186,20 @@ function rBorrow(s){
   s.innerHTML=h;
 }
 
+/* ─── LEGEND EVENT CHECK ─── */
+function checkLegend(){
+  if(!LEGEND_EVENTS||!LEGEND_EVENTS.length)return null;
+  if(G.monthsPlayed<8)return null;
+  /* Fire at most one legend per game, spaced at least 5 months apart */
+  var lastLeg=G.lastLegendMonth||0;
+  if(G.monthsPlayed-lastLeg<5)return null;
+  var eligible=LEGEND_EVENTS.filter(function(l){return G.legendFired.indexOf(l.id)===-1;});
+  if(!eligible.length)return null;
+  /* 25% chance each eligible month */
+  if(Math.random()>0.25)return null;
+  return eligible[Math.floor(Math.random()*eligible.length)];
+}
+
 /* ─── SCENARIO SCREEN ─── */
 function rScenario(s){
   var sc_obj=G.pendingScenario;if(!sc_obj){G.screen='game';render();return;}
@@ -1105,6 +1233,20 @@ function rScenarioOutcome(s){
     +'</div>'
     +'<div class="brow"><button class="btn btn-gold" onclick="PG.finishScenario()">Continue</button></div>';
   s.innerHTML=h;
+}
+
+/* ─── LEGEND EVENT SCREEN ─── */
+function rLegend(s){
+  var leg=G.pendingLegend;if(!leg){G.screen='game';render();return;}
+  s.innerHTML='<div class="ch" style="font-size:11px;letter-spacing:3px;margin-bottom:18px">A moment worth remembering — Y'+G.year+' M'+G.month+'</div>'
+    +'<div class="ecard legend" style="text-align:center">'
+    +'<div class="etype legend">LEGEND</div>'
+    +'<div class="etitle">'+leg.title+'</div>'
+    +'<div class="ebody">'+leg.body+'</div>'
+    +'<div class="eeffect eneu" style="margin-bottom:16px">'+leg.effectLabel+'</div>'
+    +'<div class="outcome-lesson" style="font-size:12px;color:var(--text3);font-style:italic;line-height:1.8;border-top:1px solid var(--border);padding-top:14px;margin-top:4px"><em>The lesson:</em> '+leg.lesson+'</div>'
+    +'</div>'
+    +'<div class="brow"><button class="btn btn-gold" onclick="PG.acknowledgeLegend()">Carry this forward</button></div>';
 }
 
 /* ─── SURVIVAL SCREEN ─── */
@@ -1171,6 +1313,7 @@ function rBankruptcy(s){
 function rWin(s){
   recalc();var ft=freeTime();var win=checkWin()||WINS[0];var exp=totalExp();
   var np=netPassive();
+  /* Asset breakdown */
   var assetBreakdown='';
   G.assets.forEach(function(a){
     var net=(a.income||0)-(a.expense||0);
@@ -1179,6 +1322,7 @@ function rWin(s){
       +'<span style="color:'+(net>0?'var(--green)':'var(--red)')+'">'+fmtS(net)+'/mo</span>'
       +'</div>';
   });
+  /* Category breakdown for dealmaker */
   var dealBreakdown='';
   if(G.profile==='dealmaker'&&G.dealsDone>0){
     dealBreakdown='<div style="margin-bottom:6px;font-size:10px;color:var(--text3);letter-spacing:1px;text-transform:uppercase">Deals by category</div>';
@@ -1247,7 +1391,10 @@ window.PG={
   toGrocery:function(){if(!G.housing)return;G.screen='setup_grocery';render();},
   setGrocery:function(id){G.grocery=LOC.groceries.find(function(g){return g.id===id;});render();},
 
-  startGame:function(){
+  continueSave:function(){
+    if(loadGame()){render();}
+    else{showModal('No save found','Could not load save data. Starting a new game.',[{label:'OK',cls:'btn-ghost',fn:'PG.closeModal();PG.start();'}]);}
+  },
     if(!G.grocery)return;
     G.expenses=[];G.assets=[];G.liabilities=[];G.carriedExpenses=[];
     G.dealsDoneByCategory={};G.dealsDoneById=[];
@@ -1263,20 +1410,23 @@ window.PG={
         income:sc(8000),expense:sc(1500),time:0,count:1,newThisMonth:false,monthsOwned:0});
     }
     shuffleDeck();recalc();
+    G.blackSwanMonth=6; /* First year always month 6, then randomised */
     addLog('Game started. '+G.playerName+', '+prof().name+', '+LOC.country+'.');
-    G.screen='game';render();
+    G.screen='game';autosave();render();
   },
 
   /* Board navigation */
   goGame:function(){G.screen='game';render();},
   toggleLog:function(){G.showFullLog=!G.showFullLog;render();},
   dismissTutorial:function(){G.tutorialDismissed=true;render();},
+  dismissPassiveMoment:function(){autosave();render();},
   goBorrow:function(){G.screen='borrow';render();},
   goBuy:function(){G.screen='buy';render();},
   goDeals:function(){
     if(freeTime()<1){showModal('No free time','Delegate tasks first to free up time for deals.',[{label:'OK',cls:'btn-ghost',fn:'PG.closeModal();'}]);return;}
     G.screen='deals';render();
   },
+  setDealFilter:function(f){G.dealFilter=f;render();},
   goCollect:function(){
     if(!G.monthIncomes)G.monthIncomes=buildMonthIncomes();
     if(G.hasManager){
@@ -1382,13 +1532,17 @@ window.PG={
   },
   changeHousing:function(id){
     G.housing=LOC.housing.find(function(h){return h.id===id;});
-    if(G.monthExpenses){var he=G.monthExpenses.find(function(e){return e.id==='housing';});if(he){he.label='Rent — '+G.housing.name;he.amount=G.housing.cost;he.done=false;}}
-    addLog('Housing changed: '+G.housing.name+'. '+fmt(G.housing.cost)+'/mo.');render();
+    var spike=G.blackSwanExpenseSpike||0;var inf=G.inflationFactor||1;
+    var adjCost=Math.round(G.housing.cost*(1+spike)*inf);
+    if(G.monthExpenses){var he=G.monthExpenses.find(function(e){return e.id==='housing';});if(he){he.label='Rent — '+G.housing.name;he.amount=adjCost;he.done=false;}}
+    addLog('Housing changed: '+G.housing.name+'. '+fmt(adjCost)+'/mo.');render();
   },
   changeGrocery:function(id){
     G.grocery=LOC.groceries.find(function(g){return g.id===id;});
-    if(G.monthExpenses){var ge=G.monthExpenses.find(function(e){return e.id==='grocery';});if(ge){ge.label='Groceries — '+G.grocery.name;ge.amount=G.grocery.cost;ge.done=false;}}
-    addLog('Groceries changed: '+G.grocery.name+'. '+fmt(G.grocery.cost)+'/mo.');render();
+    var spike=G.blackSwanExpenseSpike||0;var inf=G.inflationFactor||1;
+    var adjCost=Math.round(G.grocery.cost*(1+spike)*inf);
+    if(G.monthExpenses){var ge=G.monthExpenses.find(function(e){return e.id==='grocery';});if(ge){ge.label='Groceries — '+G.grocery.name;ge.amount=adjCost;ge.done=false;}}
+    addLog('Groceries changed: '+G.grocery.name+'. '+fmt(adjCost)+'/mo.');render();
   },
 
   /* Mortgage */
@@ -1419,6 +1573,7 @@ window.PG={
     G.hasManager=false;G.timeUsed=Math.min(24,G.timeUsed+3);
     addLog('Manager fired. Monthly salary saved: '+fmt(G.managerMonthlySalary)+'/mo.');
     G.managerMonthlySalary=0;
+    /* Remove manager salary from current month expenses if present */
     if(G.monthExpenses){G.monthExpenses=G.monthExpenses.filter(function(e){return e.id!=='mgr_salary';});}
     render();
   },
@@ -1439,53 +1594,19 @@ window.PG={
     var exitVal=ldef&&ldef.exitValue?Math.round(l.cost*ldef.exitValue):0;
     if(exitVal>0)G.cash+=exitVal;
     G.disciplineScore+=2;
-    addLog('Dropped habit: '+l.name+'. +2 discipline. '+(exitVal>0?'Recovered '+fmt(exitVal)+'.':'Zero exit value.')+' "You cut the expense. But the urge will return."');
+    addLog('Dropped habit: '+l.name+'. +2 discipline. '+( exitVal>0?'Recovered '+fmt(exitVal)+'.':'Zero exit value.')+'  "You cut the expense. But the urge will return."');
     G.liabilities.splice(idx,1);
+    /* Remove from current month expenses if present */
     if(G.monthExpenses){G.monthExpenses=G.monthExpenses.filter(function(e){return e.id!=='liab_'+l.id;});}
     render();
   },
 
   /* Deals */
+
   executeDeal:function(id){
     var deal=DEALS.find(function(d){return d.id===id;});if(!deal)return;
     if(G.reputation<deal.repReq||freeTime()<deal.time||!dealPrereqMet(deal))return;
-
-    /* Calculate success chance with player contributions */
-    var repBonus=Math.min(0.15,(G.reputation/10)*0.15);
-    var discBonus=Math.min(0.10,(G.disciplineScore/10)*0.10);
-    var catExp=G.dealsDoneByCategory[deal.cat]||0;
-    var catBonus=Math.min(0.10,(catExp/5)*0.10);
-    var finalRate=Math.min(0.95,deal.rate+repBonus+discBonus+catBonus);
-    var success=Math.random()<finalRate;
-
-    /* Build story lines for each component */
-    var repStory=G.reputation>=7
-      ?'Your reputation preceded you — the client had heard your name before you walked in.'
-      :G.reputation>=4
-      ?'Your reputation is growing but you are still building trust in this space.'
-      :'Your name is not yet known in this room. You are starting from scratch.';
-    var discStory=G.disciplineScore>=7
-      ?'Your disciplined approach meant every detail was prepared and nothing was left to chance.'
-      :G.disciplineScore>=3
-      ?'Your preparation was reasonable but some details were missing — the other party noticed.'
-      :'Your preparation was inconsistent. The other party sensed you were not fully ready.';
-    var catStory=catExp>=5
-      ?'You have closed enough '+deal.cat+' deals to know exactly where the traps are — that experience showed.'
-      :catExp>=2
-      ?'You have some '+deal.cat+' experience but this territory is still partly unfamiliar.'
-      :'This was unfamiliar territory — you have not closed enough '+deal.cat+' deals to know the landscape yet.';
-
-    var storyLine='<div style="font-size:12px;color:var(--text2);line-height:1.9;margin:12px 0;font-style:italic;text-align:left">'
-      +'"'+repStory+' '+discStory+' '+catStory+'"'
-      +'</div>';
-    var numbersLine='<div style="font-size:10px;color:var(--text3);margin-top:8px;text-align:left">'
-      +'Base: '+Math.round(deal.rate*100)+'%'
-      +' &nbsp;·&nbsp; Rep: +'+Math.round(repBonus*100)+'%'
-      +' &nbsp;·&nbsp; Discipline: +'+Math.round(discBonus*100)+'%'
-      +' &nbsp;·&nbsp; Experience: +'+Math.round(catBonus*100)+'%'
-      +'<br><span style="color:var(--gold)">Final chance: '+Math.round(finalRate*100)+'%</span>'
-      +'</div>';
-
+    var success=Math.random()<deal.rate;
     if(success){
       G.timeUsed=Math.min(24,G.timeUsed+deal.time);
       var earn=sc(deal.min)+Math.floor(Math.random()*sc(deal.max-deal.min));
@@ -1493,34 +1614,19 @@ window.PG={
       if(!G.dealsDoneByCategory[deal.cat])G.dealsDoneByCategory[deal.cat]=0;
       G.dealsDoneByCategory[deal.cat]++;
       G.dealsDoneById.push(deal.id);
-      addLog('Deal: '+deal.name+'. +'+fmt(earn)+'. Rep: '+G.reputation+'/10. Final chance was '+Math.round(finalRate*100)+'%.');
-      showModal('Deal closed',
-        deal.name+'<br><br>'
-        +'<span style="color:var(--green);font-size:20px;font-weight:600">+'+fmt(earn)+'</span>'
-        +storyLine
-        +numbersLine
-        +'<br><span style="font-size:11px;color:var(--text3)">Reputation: '+G.reputation+'/10 &nbsp;·&nbsp; Deals: '+G.dealsDone+'</span>',
+      addLog('Deal: '+deal.name+'. +'+fmt(earn)+'. Rep: '+G.reputation+'/10.');
+      showModal('Deal closed',deal.name+'<br><br><span style="color:var(--green);font-size:20px;font-weight:600">+'+fmt(earn)+'</span><br><span style="font-size:11px;color:var(--text3)">Reputation: '+G.reputation+'/10 &nbsp;·&nbsp; Deals: '+G.dealsDone+'</span>',
         [{label:'Continue',cls:'btn-gold',fn:'PG.closeModal();PG.goGame();'}]);
     } else {
       G.timeUsed=Math.min(24,G.timeUsed+deal.time);
       G.reputation=Math.max(0,G.reputation-1);
-      addLog('Deal failed: '+deal.name+'. Rep: '+G.reputation+'/10. Final chance was '+Math.round(finalRate*100)+'%.');
-      showModal('Deal failed',
-        deal.name+'<br><br>'
-        +'<span style="color:var(--red);font-size:13px">Reputation dropped to '+G.reputation+'/10</span>'
-        +storyLine
-        +'<div style="font-size:10px;color:var(--text3);margin-top:8px;text-align:left">'
-        +'Base: '+Math.round(deal.rate*100)+'%'
-        +' &nbsp;·&nbsp; Rep: +'+Math.round(repBonus*100)+'%'
-        +' &nbsp;·&nbsp; Discipline: +'+Math.round(discBonus*100)+'%'
-        +' &nbsp;·&nbsp; Experience: +'+Math.round(catBonus*100)+'%'
-        +'<br><span style="color:var(--red)">Final chance: '+Math.round(finalRate*100)+'% — unlucky this time</span>'
-        +'</div>'
-        +'<br><span style="font-size:11px;color:var(--text3)">No money lost. Only reputation.</span>',
+      addLog('Deal failed: '+deal.name+'. Rep: '+G.reputation+'/10.');
+      showModal('Deal failed',deal.name+'<br><br><span style="color:var(--red);font-size:13px">Reputation dropped to '+G.reputation+'/10</span><br><span style="font-size:11px;color:var(--text3)">No money lost. Only reputation.</span>',
         [{label:'Accept',cls:'btn-ghost',fn:'PG.closeModal();PG.goGame();'}]);
     }
   },
 
+  
   /* Month flow */
   passBlocked:function(){
     var mi=!allIncomeDone();var me=!allMandatoryExpDone();
@@ -1535,17 +1641,30 @@ window.PG={
   },
   passMonth:function(){
     if(!canPass()){PG.passBlocked();return;}
+    /* Check for legend event (rare, high-impact narrative moment) */
+    var legCheck=checkLegend();
+    if(legCheck){
+      G.pendingLegend=legCheck;
+      G.legendFired.push(legCheck.id);
+      G.lastLegendMonth=G.monthsPlayed;
+      if(legCheck.effect)legCheck.effect(G);
+      G.screen='legend';render();return;
+    }
+    /* Check for scenario trigger */
     var sc_check=checkScenario();
     if(sc_check){
       G.pendingScenario=sc_check;
       G.screen='scenario';render();return;
     }
-    if(G.month===6&&!G.blackSwanDrawnThisYear){
+    /* Draw event card — black swan fires on randomised month (default month 6 year 1, then random) */
+    var bsMonth=G.blackSwanMonth||6;
+    if(G.month===bsMonth&&!G.blackSwanDrawnThisYear){
       G.blackSwanDrawnThisYear=true;
       G.eventCard=drawBlackSwan();
     } else {
       G.eventCard=drawCard();
     }
+    /* Check for smart response */
     var hasSmartResp=G.eventCard&&EVENT_RESPONSES[G.eventCard.title];
     G.screen=hasSmartResp?'smart_response':'event';
     render();
@@ -1554,6 +1673,8 @@ window.PG={
     if(G.eventCard&&G.eventCard.fn)G.eventCard.fn(G);
     G.delegDiscount=false;G.opmDiscount=false;
     G._lastSettleResult=settleMonth();
+    autosave();
+    /* FIX: check for cash shortage after settle — route to survival if needed */
     if(checkCashShortage()){G.screen='survival';render();return;}
     G.screen='endmonth';
     render();
@@ -1567,13 +1688,25 @@ window.PG={
     }
     G.delegDiscount=false;G.opmDiscount=false;
     G._lastSettleResult=settleMonth();
+    autosave();
+    /* FIX: check for cash shortage after settle — route to survival if needed */
     if(checkCashShortage()){G.screen='survival';render();return;}
     G.screen='endmonth';
     render();
   },
 
-  /* Scenario actions */
-  chooseScenario:function(scenId,choiceId){
+  acknowledgeLegend:function(){
+    G.pendingLegend=null;
+    /* After legend, check for scenario then draw event normally */
+    var sc_check=checkScenario();
+    if(sc_check){G.pendingScenario=sc_check;G.screen='scenario';render();return;}
+    var bsMonth=G.blackSwanMonth||6;
+    if(G.month===bsMonth&&!G.blackSwanDrawnThisYear){
+      G.blackSwanDrawnThisYear=true;G.eventCard=drawBlackSwan();
+    } else {G.eventCard=drawCard();}
+    var hasSmartResp=G.eventCard&&EVENT_RESPONSES[G.eventCard.title];
+    G.screen=hasSmartResp?'smart_response':'event';render();
+  },
     var sc_obj=DEAL_SCENARIOS.find(function(x){return x.id===scenId;});
     if(!sc_obj)return;
     G.scenariosFired.push(scenId);
@@ -1585,7 +1718,9 @@ window.PG={
   },
   finishScenario:function(){
     G.pendingScenario=null;G.pendingOutcome=null;
-    if(G.month===6&&!G.blackSwanDrawnThisYear){
+    /* Now draw regular event */
+    var bsMonth=G.blackSwanMonth||6;
+    if(G.month===bsMonth&&!G.blackSwanDrawnThisYear){
       G.blackSwanDrawnThisYear=true;
       G.eventCard=drawBlackSwan();
     } else {
@@ -1611,7 +1746,7 @@ window.PG={
     if(idx>-1){
       var mv=assetMarketValue(a);
       var principal=Math.floor(mv*0.6);
-      var monthly=Math.round(principal*0.18/12);
+      var monthly=Math.round(principal*0.18/12); /* 18% emergency rate */
       a.mortgage={principal:principal,monthlyPayment:monthly,balance:principal,emergency:true};
       G.cash+=principal;
       addLog('EMERGENCY MORTGAGE: '+a.name+'. Received '+fmt(principal)+'. Rate: 18% p.a. "You borrowed against your own asset to survive the month."');
@@ -1677,12 +1812,21 @@ window.PG={
 
   /* Next month */
   nextMonth:function(){
-    if(G.month>=12){G.month=1;G.year++;G.blackSwanDrawnThisYear=false;}
+    if(G.month>=12){
+      G.month=1;G.year++;G.blackSwanDrawnThisYear=false;
+      /* Randomise black swan month for next year (anywhere from month 3 to 10) */
+      G.blackSwanMonth=3+Math.floor(Math.random()*8);
+    }
     else{G.month++;}
 
+    /* FIX: reset lifestyle temptation per year so it can fire again if ratio stays high */
+    if(G.month===1)G.lifestyleTemptationShown=false;
+
+    /* Mortgage foreclosure check */
     G.assets.forEach(function(a){
       if(!a.newThisMonth&&a.mortgage){
         if(G.cash<a.mortgage.monthlyPayment){
+          /* Foreclosure — force sell at 80% */
           var def=ASSET_DEFS.find(function(d){return d.id===a.id||a.id.indexOf(d.id)===0;});
           var fv=def?Math.floor(def.sellVal(a)*0.8):sc(50000);
           var remaining=Math.max(0,fv-a.mortgage.balance);
@@ -1694,6 +1838,7 @@ window.PG={
     });
     G.assets=G.assets.filter(function(a){return !a._foreclosed;});
 
+    /* Age assets, merge stacks */
     var toMerge=[];var toKeep=[];
     G.assets.forEach(function(a){
       if(a.newThisMonth){
@@ -1716,7 +1861,7 @@ window.PG={
 
     G.monthIncomes=null;G.monthExpenses=null;G.eventCard=null;
     G.lifestyleTemptationPending=false;G.lifestyleTemptationShown=false;
-    recalc();G.screen='game';render();
+    recalc();G.screen='game';autosave();render();
   },
 
   /* Reset */
@@ -1731,11 +1876,13 @@ window.PG={
       dealsDoneByCategory:{},dealsDoneById:[],carriedExpenses:[],
       disciplineScore:0,taxRate:30,loanAmount:0,loanMonthlyPayment:0,
       identityShiftShown:false,lifestyleTemptationPending:false,lifestyleTemptationShown:false,
-      blackSwanDrawnThisYear:false,blackSwanExpenseSpike:0,
+      blackSwanDrawnThisYear:false,blackSwanExpenseSpike:0,blackSwanMonth:6,
       consolidationPhase:false,consecutivePassiveCoverageMonths:0,inflationFactor:1,
-      hasManager:false,managerMonthlySalary:0,
+      managerMonthlySalary:0,
       scenariosFired:[],pendingScenario:null,survivalStep:0,bankruptcyLog:[],lastScenarioMonth:0,
-      tutorialDismissed:false,showFullLog:false
+      tutorialDismissed:false,showFullLog:false,dealFilter:'all',   /* FIX: reset UI state too */
+      _lastSettleResult:null,passiveFirstFireSeen:false,
+      legendFired:[],lastLegendMonth:0,pendingLegend:null
     });
     render();
   }
@@ -1743,7 +1890,6 @@ window.PG={
 
 /* ─── INIT ─── */
 function init(){
-  if(loadGame()){render();return;}
   detectLocation(function(success){
     G.screen=success?'title':'setup_loc';
     render();
