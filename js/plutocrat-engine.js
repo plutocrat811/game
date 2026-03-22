@@ -593,6 +593,21 @@ function rGame(s){
   if(G.blackSwanExpenseSpike>0)h+='<div class="notice nred">Black swan effect active — all expenses elevated this month.</div>';
   if(G.consolidationPhase)h+='<div class="notice norange">Inflation factor: '+G.inflationFactor.toFixed(2)+'x — your cost of living grows every year. Keep passive income growing faster.</div>';
 
+  /* First time tutorial hint */
+  if(G.month===1&&G.year===1&&!G.tutorialDismissed){
+    h+='<div style="background:rgba(201,168,76,0.08);border:1px solid var(--border-gold);border-radius:8px;padding:16px;margin-bottom:14px">'
+      +'<div style="font-size:10px;color:var(--gold);letter-spacing:2px;text-transform:uppercase;margin-bottom:8px">First time? Here is how to play</div>'
+      +'<div style="font-size:12px;color:var(--text2);line-height:2">'
+      +'① <strong>Collect income</strong> — collect your salary and any passive income<br>'
+      +'② <strong>Pay expenses</strong> — pay mandatory expenses. Skip optional ones if needed<br>'
+      +'③ <strong>Buy assets</strong> — invest cash into assets that pay you every month<br>'
+      +'④ <strong>Pass the month</strong> — move to the next month and face an event<br><br>'
+      +'<span style="color:var(--text3)">Goal: build enough passive income to cover all your expenses. Then you are free.</span>'
+      +'</div>'
+      +'<button class="btn btn-ghost" style="margin-top:12px;font-size:11px;padding:7px 18px" onclick="PG.dismissTutorial()">Got it — dismiss</button>'
+      +'</div>';
+  }
+
   /* Lifestyle temptation */
   if(G.lifestyleTemptationPending){
     h+='<div class="temptation-card">'
