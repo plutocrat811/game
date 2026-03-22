@@ -119,7 +119,7 @@ function checkLifestyleTemptation(){
 function checkWin(){
   var exp=totalExp();recalc();var mp=G.monthsPlayed;var np=netPassive();
   if(G.consolidationPhase&&G.consecutivePassiveCoverageMonths>=3&&np>=exp*3)return WINS[3];
-  if(np>0&&np>=exp&&freeTime()===0&&mp>=5)return WINS[2];
+  if(np>0&&np>=exp&&freeTime()>=20&&mp>=5)return WINS[2];
   if(G.cash>=sc(1000000))return WINS[1];
   if(np>0&&np>=exp&&mp>=3)return WINS[0];
   return null;
