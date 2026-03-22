@@ -1,1910 +1,1455 @@
-/* PLUTOCRAT v11 — plutocrat-engine.js */
-/* Layer 2 — All state, all logic, all rendering. Reads Layer 1 (plutocrat-data.js). */
+/* PLUTOCRAT v11 — plutocrat-data.js */
+/* Layer 1 — Pure Data. No DOM. No logic. No state mutation. */
 
 'use strict';
 
-(function(){
-
-/* ─── LOCATION ─── */
-var LOC={currency:'₹',country:'India',city:'India',
-  housing:LDATA.IN.housing,groceries:LDATA.IN.groceries};
-
-function applyLoc(code){
-  var d=LDATA[code]||LDATA.IN;
-  LOC.currency=d.currency;LOC.country=d.country;LOC.city=d.city;
-  LOC.housing=d.housing;LOC.groceries=d.groceries;
-}
-
-function detectLocation(cb){
-  var done=false;
-  function finish(code,city){if(done)return;done=true;applyLoc(code||'IN');if(city)LOC.city=city;cb(true);}
-  var t=setTimeout(function(){if(!done){done=true;cb(false);}},4000);
-  if(typeof fetch!=='undefined'){
-    fetch('https://ipapi.co/json/').then(function(r){return r.json();})
-      .then(function(d){clearTimeout(t);finish(d.country_code,d.city);}).catch(tryJSONP);
-  } else {tryJSONP();}
-  function tryJSONP(){
-    if(done)return;
-    var s=document.createElement('script');
-    window._ipCb=function(d){clearTimeout(t);finish(d.country_code,d.city);delete window._ipCb;};
-    s.src='https://ipapi.co/jsonp/?callback=_ipCb';
-    s.onerror=function(){clearTimeout(t);if(!done){done=true;cb(false);}};
-    document.head.appendChild(s);
-  }
-}
-
-/* ─── CURRENCY SCALING ─── */
-var RATES={IN:1,US:0.012,GB:0.0096,AE:0.044,SG:0.016,AU:0.018};
-function getCurCode(){
-  var c=LOC.currency;
-  if(c==='$')return 'US';if(c==='£')return 'GB';
-  if(c==='AED')return 'AE';if(c==='S$')return 'SG';if(c==='A$')return 'AU';
-  return 'IN';
-}
-function sc(n){var r=RATES[getCurCode()]||1;return Math.round(n*r);}
-function fmt(n){return LOC.currency+Math.abs(Math.round(n)).toLocaleString();}
-function fmtS(n){return(n<0?'−':'+')+ LOC.currency+Math.abs(Math.round(n)).toLocaleString();}
-
-/* ─── GAME STATE ─── */
-var G={
-  screen:'title',playerName:'',profile:null,
-  month:1,year:1,cash:0,
-  expenses:[],assets:[],liabilities:[],log:[],
-  eventDeck:[],usedEvents:[],eventCard:null,
-  hasManager:false,housing:null,grocery:null,
-  monthIncomes:null,monthExpenses:null,
-  delegDiscount:false,opmDiscount:false,
-  passiveIncome:0,passiveExpense:0,
-  salaryGrowthBonus:0,monthsPlayed:0,timeUsed:0,
-  reputation:3,dealsDone:0,dealsDoneByCategory:{},dealsDoneById:[],
-  carriedExpenses:[],
-  disciplineScore:0,taxRate:30,
-  loanAmount:0,loanMonthlyPayment:0,
-  identityShiftShown:false,
-  lifestyleTemptationPending:false,lifestyleTemptationShown:false,
-  blackSwanDrawnThisYear:false,blackSwanExpenseSpike:0,
-  consolidationPhase:false,consecutivePassiveCoverageMonths:0,inflationFactor:1,
-  /* v11 additions */
-  managerMonthlySalary:0,    /* mandatory monthly expense when manager hired */
-  scenariosFired:[],         /* ids of scenarios already shown */
-  pendingScenario:null,      /* scenario object waiting to be shown */
-  survivalStep:0,            /* 0=none 1=liquidate 2=mortgage 3=bankrupt */
-  bankruptcyLog:[],          /* copy of log at bankruptcy for display */
-  legendFired:[],            /* ids of legend events already shown */
-  passiveFirstFireSeen:false /* dramatic passive income moment shown */
-};
-
-/* ─── HELPERS ─── */
-function gel(id){return document.getElementById(id);}
-function addLog(msg){G.log.unshift('Y'+G.year+' M'+G.month+': '+msg);if(G.log.length>30)G.log.pop();}
-function recalc(){
-  G.passiveIncome=G.assets.reduce(function(s,a){return a.newThisMonth?s:s+(a.income||0);},0);
-  G.passiveExpense=G.assets.reduce(function(s,a){return a.newThisMonth?s:s+(a.expense||0);},0);
-}
-function netPassive(){return G.passiveIncome-G.passiveExpense;}
-function totalExp(){
-  var spike=G.blackSwanExpenseSpike||0;
-  var mgrSalary=G.hasManager?G.managerMonthlySalary:0;
-  var base=G.expenses.reduce(function(s,e){return s+e.amount;},0)
-    +G.liabilities.reduce(function(s,l){return s+l.monthly;},0)
-    +(G.housing?G.housing.cost:0)+(G.grocery?G.grocery.cost:0)
-    +G.passiveExpense+G.loanMonthlyPayment+mgrSalary;
-  return Math.round(base*(1+spike)*G.inflationFactor);
-}
-function freeTime(){return Math.max(0,24-G.timeUsed);}
-function timePct(){return Math.round((freeTime()/24)*100);}
-function timeColor(){var f=freeTime();return f<=4?'var(--red)':f>=16?'var(--green)':'var(--gold)';}
-function prof(){return PROFILES.find(function(p){return p.id===G.profile;});}
-function salary(){
-  var p=prof();if(!p)return 0;
-  var base=sc(p.salaryBase)+(G.salaryGrowthBonus||0);
-  if(G.profile==='selfemployed'&&G.timeUsed>=24)return Math.floor(base*0.5);
-  return base;
-}
-function salaryTax(){return Math.round(salary()*(G.taxRate/100));}
-function passiveTax(income){var rate=Math.max(5,Math.round(G.taxRate/2));return Math.round(income*(rate/100));}
-function dealPrereqMet(deal){
-  if(!deal.prereq||!deal.prereq.length)return true;
-  return deal.prereq.every(function(pid){return G.dealsDoneById.indexOf(pid)>-1;});
-}
-function missingPrereqs(deal){
-  if(!deal.prereq||!deal.prereq.length)return [];
-  return deal.prereq.filter(function(pid){return G.dealsDoneById.indexOf(pid)===-1;})
-    .map(function(pid){var d=DEALS.find(function(x){return x.id===pid;});return d?d.name:pid;});
-}
-function checkLifestyleTemptation(){
-  var exp=totalExp();if(exp<=0)return false;
-  var ratio=G.cash/Math.max(1,exp);
-  if(ratio>=3&&!G.lifestyleTemptationShown){G.lifestyleTemptationPending=true;return true;}
-  return false;
-}
-function checkWin(){
-  var exp=totalExp();recalc();var mp=G.monthsPlayed;var np=netPassive();
-  if(G.consolidationPhase&&G.consecutivePassiveCoverageMonths>=3&&np>=exp*3)return WINS[3];
-  if(np>0&&np>=exp&&freeTime()>=18&&mp>=5)return WINS[2];  /* FIX: 20 was unreachable; 18 allows delegation path */
-  if(G.cash>=sc(1000000))return WINS[1];
-  if(np>0&&np>=exp&&mp>=3)return WINS[0];
-  return null;
-}
-
-/* ─── CARD DECK ─── */
-function shuffleDeck(){
-  var d=ALL_EVENTS.slice();
-  for(var i=d.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=d[i];d[i]=d[j];d[j]=t;}
-  G.eventDeck=d;G.usedEvents=[];
-}
-function drawCard(){
-  if(!G.eventDeck.length){shuffleDeck();}
-  var c=G.eventDeck.pop();G.usedEvents.push(c);return c;
-}
-function drawBlackSwan(){
-  return BLACK_SWAN_EVENTS[Math.floor(Math.random()*BLACK_SWAN_EVENTS.length)];
-}
-
-/* ─── SCENARIO CHECK ─── */
-function checkScenario(){
-  /* Returns first eligible scenario not yet fired, or null */
-  for(var i=0;i<DEAL_SCENARIOS.length;i++){
-    var sc_obj=DEAL_SCENARIOS[i];
-    if(G.scenariosFired.indexOf(sc_obj.id)>-1)continue;
-    if(G.month<(sc_obj.minMonth||1))continue;
-    if(sc_obj.profiles.indexOf('all')===-1&&sc_obj.profiles.indexOf(G.profile)===-1)continue;
-    /* Fire at most one per 3 months and only when player has some assets or cash stake */
-    var lastFired=G.scenariosFired.length;
-    if(lastFired>0&&G.monthsPlayed-(G.lastScenarioMonth||0)<3)continue;
-    if(G.cash<sc(20000)&&G.assets.length===0)continue;
-    /* FIX: stamp lastScenarioMonth here so a scenario shown-but-not-chosen doesn't re-fire next month */
-    G.lastScenarioMonth=G.monthsPlayed;
-    return sc_obj;
-  }
-  return null;
-}
-
-/* ─── SETTLE MONTH — sole cash movement engine ─── */
-/* Manager marks items done only. ALL cash movement here. */
-function settleMonth(){
-  recalc();
-  var collectedIncome=0;
-  var salaryTaxAmt=0;var passiveTaxAmt=0;var paidExp=0;
-  var seBonus=(G.profile==='selfemployed'&&freeTime()>=8)?sc(20000):0;
-
-  if(G.monthIncomes){
-    G.monthIncomes.forEach(function(item){
-      if(item.done&&item.amount>0&&!item.cashTaken){
-        collectedIncome+=item.amount;
-        if(item.isSalary)salaryTaxAmt+=salaryTax();
-        if(item.isPassive)passiveTaxAmt+=passiveTax(item.amount);
-      }
-    });
-  }
-
-  if(G.monthExpenses){
-    G.monthExpenses.forEach(function(item){
-      if(item.done&&!item.cashTaken){paidExp+=item.amount;}
-    });
-  }
-
-  var totalTax=salaryTaxAmt+passiveTaxAmt;
-  var net=collectedIncome+seBonus-paidExp-totalTax;
-
-  /* FIX: allow cash to go negative so checkCashShortage fires correctly */
-  G.cash=G.cash+net;
-
-  G.monthsPlayed++;
-  G.blackSwanExpenseSpike=0;
-
-  /* Employee trap — salary grows when no assets */
-  if(G.profile==='employee'&&G.assets.filter(function(a){return !a.newThisMonth;}).length===0)
-    G.salaryGrowthBonus=(G.salaryGrowthBonus||0)+sc(5000);
-
-  addLog('Month closed. Income:'+fmt(collectedIncome)+' Tax:'+fmt(totalTax)+' Exp:'+fmt(paidExp)+' Net:'+fmtS(net));
-
-  /* Carry skipped non-mandatory expenses with late fee */
-  var newCarried=[];
-  if(G.monthExpenses){
-    G.monthExpenses.forEach(function(item){
-      if((!item.done||item.skipped)&&!item.mandatory){
-        var monthsSkipped=(item.skippedMonths||0)+1;
-        var lateFee=monthsSkipped>=2?Math.round(item.amount*0.1):0;
-        var carriedAmt=item.amount+lateFee;
-        var originalId=item.isCarried?item.originalId:item.id;
-        var existing=newCarried.find(function(c){return c.id===originalId;});
-        if(existing){existing.amount+=carriedAmt;existing.monthsSkipped=monthsSkipped;}
-        else{newCarried.push({id:originalId,label:item.isCarried?item.label.split(' (overdue')[0]:item.label,amount:carriedAmt,monthsSkipped:monthsSkipped});}
-        if(lateFee>0)addLog('Late fee: '+item.label+' +'+fmt(lateFee));
-      }
-    });
-  }
-  G.carriedExpenses=newCarried;
-
-  checkLifestyleTemptation();
-
-  var np=netPassive();
-  if(G.consolidationPhase){
-    var exp=totalExp();
-    if(np>=exp*3){G.consecutivePassiveCoverageMonths++;}
-    else{G.consecutivePassiveCoverageMonths=0;}
-    if(G.month===12){G.inflationFactor=+(G.inflationFactor*1.02).toFixed(4);}
-  }
-
-  return{collectedIncome:collectedIncome,totalTax:totalTax,paidExp:paidExp,net:net,seBonus:seBonus,newCarried:newCarried};
-}
-
-/* ─── CASH SHORTAGE CHECK ─── */
-/* Returns true if cash shortage detected after settle. Steps through survival sequence. */
-function checkCashShortage(){
-  var exp=totalExp();
-  if(G.cash<0||(G.cash===0&&exp>0)){
-    /* Find cheapest non-mortgaged sellable asset */
-    var sellable=G.assets.filter(function(a){
-      return !a.newThisMonth&&a.type!=='delegation'&&!a.mortgage;
-    });
-    if(sellable.length>0){
-      sellable.sort(function(a,b){return (a.income||0)-(b.income||0);});
-      G.survivalStep=1;
-      G.survivalAsset=sellable[0];
-    } else {
-      /* Check for mortgageable assets */
-      var mortgageable=G.assets.filter(function(a){
-        return !a.newThisMonth&&a.type==='real estate'&&!a.mortgage;
-      });
-      if(mortgageable.length>0){
-        G.survivalStep=2;
-        G.survivalMortgageAsset=mortgageable[0];
-      } else {
-        G.survivalStep=3;
-      }
-    }
-    return true;
-  }
-  G.survivalStep=0;
-  return false;
-}
-
-/* ─── MORTGAGE HELPERS ─── */
-function assetMarketValue(a){
-  var def=ASSET_DEFS.find(function(d){return d.id===a.id||a.id.indexOf(d.id)===0;});
-  return def?def.sellVal(a):sc(50000);
-}
-function mortgageAsset(assetIdx){
-  var a=G.assets[assetIdx];
-  if(!a||a.newThisMonth||a.mortgage)return;
-  var mv=assetMarketValue(a);
-  var principal=Math.floor(mv*0.6);
-  var monthlyPayment=Math.round(principal*0.10/12);
-  a.mortgage={principal:principal,monthlyPayment:monthlyPayment,balance:principal};
-  G.cash+=principal;
-  addLog('Mortgaged: '+a.name+'. Received '+fmt(principal)+'. Monthly: '+fmt(monthlyPayment)+'/mo (10% p.a.)');
-  return{principal:principal,monthlyPayment:monthlyPayment};
-}
-function repayMortgage(assetIdx){
-  var a=G.assets[assetIdx];
-  if(!a||!a.mortgage)return;
-  var bal=a.mortgage.balance;
-  if(G.cash<bal){
-    showModal('Insufficient cash','Need '+fmt(bal)+' to clear mortgage. You have '+fmt(G.cash)+'.',
-      [{label:'OK',cls:'btn-ghost',fn:'PG.closeModal();'}]);return;
-  }
-  G.cash-=bal;
-  addLog('Mortgage repaid on '+a.name+'. '+fmt(bal)+' cleared.');
-  delete a.mortgage;
-  render();
-}
-
-/* ─── MODAL ─── */
-function showModal(title,body,btns){
-  var bhtml=btns.map(function(b){return '<button class="btn '+b.cls+'" onclick="'+b.fn+'" style="margin:4px">'+b.label+'</button>';}).join('');
-  var m=gel('modal');m.style.display='block';
-  m.innerHTML='<div style="position:fixed;inset:0;background:rgba(0,0,0,0.88);display:flex;align-items:center;justify-content:center;padding:20px;z-index:201" onclick="PG.closeModal()"><div class="modal-box" onclick="event.stopPropagation()"><div class="modal-title">'+title+'</div><div class="modal-body">'+body+'</div><div style="display:flex;flex-wrap:wrap;justify-content:center;gap:8px">'+bhtml+'</div></div></div>';
-}
-function closeModal(){var m=gel('modal');m.style.display='none';m.innerHTML='';}
-
-/* ─── INCOME / EXPENSE BUILDERS ─── */
-function buildMonthIncomes(){
-  var sal=salary();var list=[];
-  if(sal>0)list.push({id:'salary',label:G.profile==='selfemployed'?'Business revenue':'Salary',amount:sal,type:'salary',done:false,mandatory:true,isSalary:true});
-  G.assets.forEach(function(a,i){
-    if(!a.newThisMonth&&a.income>0&&!a.vacantThisMonth)
-      list.push({id:'asset_inc_'+i,label:a.name+(a.count>1?' x'+a.count:''),amount:a.income,type:'passive income',done:false,mandatory:false,isPassive:true,assetIdx:i});
-    if(!a.newThisMonth&&a.vacantThisMonth)
-      list.push({id:'asset_vac_'+i,label:a.name+' (vacant / suspended)',amount:0,type:'passive income — skipped',done:true,mandatory:false});
-  });
-  return list;
-}
-function buildMonthExpenses(){
-  var list=[];
-  var spike=G.blackSwanExpenseSpike||0;
-  var inf=G.inflationFactor||1;
-  function adj(n){return Math.round(n*(1+spike)*inf);}
-  if(G.housing)list.push({id:'housing',label:'Rent — '+G.housing.name,amount:adj(G.housing.cost),type:'fixed',locked:true,mandatory:true,done:false,skippedMonths:0});
-  if(G.grocery)list.push({id:'grocery',label:'Groceries — '+G.grocery.name,amount:adj(G.grocery.cost),type:'fixed',locked:true,mandatory:true,done:false,skippedMonths:0});
-  if(G.loanMonthlyPayment>0)list.push({id:'loan_interest',label:'Loan interest payment',amount:adj(G.loanMonthlyPayment),type:'debt service',locked:true,mandatory:true,done:false,skippedMonths:0});
-  if(G.hasManager&&G.managerMonthlySalary>0)
-    list.push({id:'mgr_salary',label:'Manager salary',amount:adj(G.managerMonthlySalary),type:'delegation',locked:true,mandatory:true,done:false,skippedMonths:0});
-  G.assets.forEach(function(a,i){
-    if(!a.newThisMonth&&a.expense>0)
-      list.push({id:'asset_exp_'+i,label:a.name+' — maintenance / fees',amount:adj(a.expense),type:'asset expense',locked:false,mandatory:false,done:false,skippedMonths:0});
-    /* Mortgage payment as mandatory expense */
-    if(!a.newThisMonth&&a.mortgage){
-      list.push({id:'mortgage_'+i,label:a.name+' — mortgage payment',amount:adj(a.mortgage.monthlyPayment),type:'mortgage',locked:true,mandatory:true,done:false,skippedMonths:0,isMortgage:true,assetIdx:i});
-    }
-  });
-  G.expenses.forEach(function(e){list.push(Object.assign({},e,{amount:adj(e.amount),done:false,skippedMonths:0}));});
-  G.liabilities.forEach(function(l){list.push({id:'liab_'+l.id,label:l.name+' (monthly)',amount:adj(l.monthly),type:'liability',locked:false,mandatory:false,done:false,skippedMonths:0});});
-  G.carriedExpenses.forEach(function(ce){
-    list.push({id:ce.id+'_carried',label:ce.label+' (overdue — '+ce.monthsSkipped+' month'+(ce.monthsSkipped>1?'s':'')+' skipped)',amount:ce.amount,type:'overdue',locked:false,mandatory:false,done:false,skippedMonths:ce.monthsSkipped,isCarried:true,originalId:ce.id});
-  });
-  return list;
-}
-function allIncomeDone(){if(!G.monthIncomes||!G.monthIncomes.length)return true;return G.monthIncomes.every(function(i){return i.done;});}
-function allMandatoryExpDone(){
-  if(!G.monthExpenses)return false;
-  var m=G.monthExpenses.filter(function(i){return i.mandatory;});
-  if(!m.length)return true;
-  return m.every(function(i){return i.done;});
-}
-function canPass(){return allIncomeDone()&&allMandatoryExpDone();}
-
-/* ─── MANAGER PAY WITH PRIORITY ─── */
-/* Manager pays mandatory first, then optional, stops if cash exhausted */
-function managerAutoPayExpenses(){
-  if(!G.monthExpenses)G.monthExpenses=buildMonthExpenses();
-  var mandatory=G.monthExpenses.filter(function(i){return i.mandatory&&!i.done;});
-  var optional=G.monthExpenses.filter(function(i){return !i.mandatory&&!i.done;});
-  var items=mandatory.concat(optional);
-  items.forEach(function(item){
-    if(item.done)return;
-    if(G.cash>=item.amount){
-      G.cash=Math.max(0,G.cash-item.amount);
-      item.done=true;
-      item.cashTaken=true;
-    }
-    /* If mandatory and cannot afford — leave undone. settleMonth handles carry. */
-  });
-}
-
-/* ─── INJECT FLASH CSS IF MISSING ─── */
-(function(){
-  if(!document.getElementById('pg-flash-style')){
-    var st=document.createElement('style');
-    st.id='pg-flash-style';
-    st.textContent='.event-flash{position:fixed;inset:0;pointer-events:none;z-index:999;opacity:0;animation:pgflash 0.5s ease-out forwards;}'
-      +'@keyframes pgflash{0%{opacity:0.18;}100%{opacity:0;}}'
-      +'.flash-red{background:rgba(204,68,68,0.25);}'
-      +'.flash-green{background:rgba(58,170,106,0.18);}';
-    document.head.appendChild(st);
-  }
-})();
-
-/* ─── SAVE / LOAD ─── */
-var SAVE_KEY='plutocrat_v11_save';
-function saveGame(){
-  try{
-    /* Serialize only plain data — strip function references that survive in ASSET_DEFS */
-    var data=JSON.stringify(G);
-    localStorage.setItem(SAVE_KEY,data);
-  }catch(e){}
-}
-function loadGame(){
-  try{
-    var data=localStorage.getItem(SAVE_KEY);
-    if(!data)return false;
-    var saved=JSON.parse(data);
-    /* Don't restore mid-event or mid-survival screens — return to game board */
-    var safeScreens=['game','collect','pay_expenses','buy','deals','borrow','endmonth','win','bankruptcy'];
-    if(safeScreens.indexOf(saved.screen)===-1)saved.screen='game';
-    Object.assign(G,saved);
-    recalc();
-    return true;
-  }catch(e){return false;}
-}
-function clearSave(){
-  try{localStorage.removeItem(SAVE_KEY);}catch(e){}
-}
-/* Autosave wrapper — call after any meaningful state mutation */
-function autosave(){
-  try{saveGame();}catch(e){}
-}
-
-/* ─── RENDER ENGINE ─── */
-function render(){
-  var tr=gel('tright');
-  var setupScreens=['title','setup_loc','setup_name','setup_profile','setup_housing','setup_grocery'];
-  if(setupScreens.indexOf(G.screen)>-1){tr.innerHTML='';}
-  else{
-    recalc();
-    tr.innerHTML=G.playerName+' &nbsp;Y'+G.year+' M'+G.month
-      +'<br>'+fmt(G.cash)+' &nbsp;net passive: '+fmtS(netPassive())
-      +(G.consolidationPhase?' &nbsp;<span style="color:var(--gold)">CONSOLIDATION</span>':'');
-  }
-  var s=gel('screen');s.innerHTML='';
-  var map={
-    title:rTitle,setup_loc:rSetupLoc,setup_name:rName,setup_profile:rProfile,
-    setup_housing:rHousing,setup_grocery:rGrocery,
-    game:rGame,collect:rCollect,pay_expenses:rPayExp,
-    buy:rBuy,deals:rDeals,event:rEvent,smart_response:rSmartResponse,
-    endmonth:rEnd,win:rWin,
-    identity_shift:rIdentityShift,consolidation:rConsolidation,borrow:rBorrow,
-    scenario:rScenario,scenario_outcome:rScenarioOutcome,
-    legend:rLegend,
-    survival:rSurvival,bankruptcy:rBankruptcy
-  };
-  if(map[G.screen])map[G.screen](s);
-}
-
-/* ─────────────────────────────────────────
-   SCREEN RENDERERS
-─────────────────────────────────────────── */
-
-function rTitle(s){
-  var hasSave=false;
-  try{hasSave=!!localStorage.getItem(SAVE_KEY);}catch(e){}
-  s.innerHTML='<div class="hero">'
-    +'<div class="big">PLUTOCRAT</div>'
-    +'<div class="tagline">by Billionaire by 20</div>'
-    +'<div class="quote">'
-    +'A business that requires your time is <em>just another job</em>.<br>'
-    +'Real wealth is when assets work — <em>and you don\'t have to</em>.<br>'
-    +'The goal is not money. <em>The goal is time.</em>'
-    +'</div>'
-    +'<div style="font-size:11px;color:var(--text3);margin-bottom:32px;line-height:1.8">Location: <span style="color:var(--gold)">'+LOC.country+(LOC.city&&LOC.city!==LOC.country?', '+LOC.city:'')+'</span> &nbsp;&nbsp; Currency: <span style="color:var(--gold)">'+LOC.currency+'</span></div>'
-    +'<div class="brow" style="justify-content:center;gap:12px">'
-    +(hasSave?'<button class="btn btn-gold" onclick="PG.continueSave()">Continue game</button>':'')
-    +'<button class="btn '+(hasSave?'btn-ghost':'btn-gold')+'" onclick="PG.start()">'+(hasSave?'New game':'Begin your ascent')+'</button>'
-    +'<button class="btn btn-ghost" onclick="PG.changeLoc()">Change location</button>'
-    +'</div></div>';
-}
-
-function rSetupLoc(s){
-  s.innerHTML='<div class="ch" style="font-size:20px;margin-bottom:8px">Select your location</div>'
-    +'<div style="font-size:12px;color:var(--text3);margin-bottom:22px;line-height:1.6">Choose the country that matches your currency and cost of living.</div>'
-    +'<div class="loc-grid">'
-    +MANUAL_LOCS.map(function(l){
-      return '<div class="loc-card'+(LOC.country===LDATA[l.code].country?' active':'')+'" onclick="PG.setLoc(\''+l.code+'\')">'
-        +'<div class="loc-name">'+l.label+'</div>'
-        +'<div class="loc-cur">'+l.cur+'</div></div>';
-    }).join('')
-    +'</div>'
-    +'<div class="brow">'
-    +'<button class="btn btn-ghost" onclick="PG.fromLoc()">Back</button>'
-    +'<button class="btn btn-gold" onclick="PG.fromLoc()">Confirm location</button>'
-    +'</div>';
-}
-
-function rName(s){
-  s.innerHTML='<div class="ch" style="font-size:20px;margin-bottom:8px">What is your name?</div>'
-    +'<div style="font-size:12px;color:var(--text3);margin-bottom:24px">This is your game. It should feel like your life.</div>'
-    +'<div class="inp-inline">'
-    +'<input class="inp" id="ninp" placeholder="Enter your name" maxlength="30" value="'+G.playerName+'" onkeydown="if(event.key===\'Enter\')PG.setName()"/>'
-    +'<button class="btn btn-gold" onclick="PG.setName()">Continue</button>'
-    +'</div>';
-  setTimeout(function(){var i=gel('ninp');if(i)i.focus();},80);
-}
-
-function rProfile(s){
-  var h='<div class="ch" style="font-size:20px;margin-bottom:6px">Choose your profile, '+G.playerName+'</div>'
-    +'<div style="font-size:12px;color:var(--text3);margin-bottom:20px">Your starting point shapes your challenges — not your destiny</div>'
-    +'<div class="pgrid">';
-  PROFILES.forEach(function(p){
-    h+='<div class="pcard'+(G.profile===p.id?' active':'')+'" onclick="PG.pick(\''+p.id+'\')">'
-      +'<div class="pbadge '+p.badge+'">'+p.badgeText+'</div>'
-      +'<div class="pname">'+p.name+'</div><div class="psub">'+p.tag+'</div>'
-      +'<div class="pstat">Cash: <span>'+fmt(sc(p.cash))+'</span></div>'
-      +'<div class="pstat">Time used: <span>'+p.timeUsed+'/24</span></div>'
-      +'<div class="pstat">Salary: <span>'+fmt(sc(p.salaryBase))+'/mo</span></div>'
-      +'<div class="pstat">Tax rate: <span>'+p.taxRate+'%</span></div>'
-      +'<div class="pdesc">'+p.desc+'</div>'
-      +'<div style="font-size:11px;color:var(--blue);margin-top:8px;line-height:1.6">'+p.unique+'</div>'
-      +'</div>';
-  });
-  h+='</div><div class="brow"><button class="btn btn-gold" onclick="PG.confirmProfile()" '+(G.profile?'':'disabled')+'>Lock in profile</button></div>';
-  s.innerHTML=h;
-}
-
-function rHousing(s){
-  var h='<div class="ch" style="font-size:20px;margin-bottom:6px">Where do you live?</div>'
-    +'<div style="font-size:12px;color:var(--text3);margin-bottom:20px">Rent is paid every month — it cannot be skipped.</div>'
-    +'<div class="choice-grid">';
-  LOC.housing.forEach(function(hh){
-    h+='<div class="choice-card'+(G.housing&&G.housing.id===hh.id?' active':'')+'" onclick="PG.setHousing(\''+hh.id+'\')">'
-      +'<div class="choice-name">'+hh.name+'</div>'
-      +'<div class="choice-cost">'+fmt(hh.cost)+'/month</div>'
-      +'<div class="choice-desc">'+hh.desc+'</div>'
-      +(hh.perk?'<div class="choice-perk">'+hh.perk+'</div>':'')
-      +'</div>';
-  });
-  h+='</div><div class="brow">'
-    +'<button class="btn btn-ghost" onclick="PG.backToProfile()">Back</button>'
-    +'<button class="btn btn-gold" onclick="PG.toGrocery()" '+(G.housing?'':'disabled')+'>Next — groceries</button>'
-    +'</div>';
-  s.innerHTML=h;
-}
-
-function rGrocery(s){
-  var h='<div class="ch" style="font-size:20px;margin-bottom:6px">Where do you buy groceries?</div>'
-    +'<div style="font-size:12px;color:var(--text3);margin-bottom:20px">Groceries are paid every month — cannot be skipped.</div>'
-    +'<div class="choice-grid">';
-  LOC.groceries.forEach(function(gr){
-    h+='<div class="choice-card'+(G.grocery&&G.grocery.id===gr.id?' active':'')+'" onclick="PG.setGrocery(\''+gr.id+'\')">'
-      +'<div class="choice-name">'+gr.name+'</div>'
-      +'<div class="choice-cost">'+fmt(gr.cost)+'/month</div>'
-      +'<div class="choice-desc">'+gr.desc+'</div>'
-      +'</div>';
-  });
-  h+='</div><div class="brow">'
-    +'<button class="btn btn-ghost" onclick="PG.backToHousing()">Back</button>'
-    +'<button class="btn btn-gold" onclick="PG.startGame()" '+(G.grocery?'':'disabled')+'>Start game</button>'
-    +'</div>';
-  s.innerHTML=h;
-}
-
-function rIdentityShift(s){
-  s.innerHTML='<div class="identity-screen">'
-    +'<div class="identity-inner">'
-    +'<div class="identity-pre">A moment of clarity</div>'
-    +'<div class="identity-headline">Last night, while you slept,<br>money arrived.</div>'
-    +'<div class="identity-body">'
-    +'You did nothing.<br>'
-    +'You made no calls. You sent no emails. You attended no meetings.<br>'
-    +'And yet — <em>money arrived</em>.<br><br>'
-    +'This is not luck. This is not magic.<br>'
-    +'This is what happens when you stop selling your time<br>'
-    +'and start building <em>systems that work without you</em>.<br><br>'
-    +'Welcome to the other side.'
-    +'</div>'
-    +'<button class="btn btn-gold" onclick="PG.acknowledgeIdentityShift()" style="font-size:13px;padding:14px 36px;letter-spacing:2px">I understand</button>'
-    +'</div></div>';
-}
-
-function rConsolidation(s){
-  s.innerHTML='<div style="text-align:center;padding:48px 20px">'
-    +'<div style="font-size:9px;letter-spacing:4px;text-transform:uppercase;color:var(--text3);margin-bottom:16px">Phase shift</div>'
-    +'<div class="ch" style="font-size:30px;margin-bottom:20px">The game changes now.</div>'
-    +'<div style="font-size:14px;color:var(--text2);line-height:2.2;max-width:560px;margin:0 auto 28px;font-style:italic">'
-    +'Getting rich and <em>staying rich</em> are completely different skills.<br>'
-    +'You have escaped the rat race.<br>'
-    +'Now the challenge is to <em>never go back</em>.'
-    +'</div>'
-    +'<div style="background:var(--bg2);border:1px solid var(--border-gold);border-radius:10px;padding:22px;max-width:500px;margin:0 auto 28px;text-align:left">'
-    +'<div style="font-size:11px;color:var(--gold);letter-spacing:2px;text-transform:uppercase;margin-bottom:14px">Consolidation phase — new rules</div>'
-    +'<div style="font-size:12px;color:var(--text2);line-height:2">'
-    +'● Inflation erodes your passive income by 2% per year<br>'
-    +'● Assets occasionally need reinvestment to maintain yield<br>'
-    +'● New win: sustain 3x passive coverage for 3 consecutive months<br>'
-    +'● Black swan events become more severe'
-    +'</div></div>'
-    +'<button class="btn btn-gold" onclick="PG.enterConsolidation()" style="font-size:13px;padding:14px 36px">Enter consolidation phase</button>'
-    +'</div>';
-}
-
-function rGame(s){
-  recalc();
-  var ft=freeTime();var exp=totalExp();var win=checkWin();var tpct=timePct();
-  var incDone=allIncomeDone();var expDone=allMandatoryExpDone();var cp=canPass();
-  var np=netPassive();var overdueCount=G.carriedExpenses.length;
-  var taxOwed=salaryTax();
-
-  var h='<div class="ch" style="font-size:11px;letter-spacing:3px;margin-bottom:14px">'+G.playerName+'\'s board — Year '+G.year+', Month '+G.month+(G.consolidationPhase?' &nbsp;<span style="color:var(--orange);font-size:9px">CONSOLIDATION</span>':'')+'</div>';
-
-  /* Calendar */
-  h+='<div class="cal"><div class="cal-head"><div class="cal-year">Year '+G.year+'</div><div style="font-size:10px;color:var(--text3)">Month '+G.month+' of 12</div></div><div class="cal-months">';
-  for(var mi=1;mi<=12;mi++){var mc=mi<G.month?'done':mi===G.month?'current':'';h+='<div class="cal-m '+mc+'"></div>';}
-  h+='</div></div>';
-
-  /* HUD row 1 */
-  h+='<div class="hud hud4">'
-    +'<div class="hbox"><div class="hlbl">Cash</div><div class="hval">'+fmt(G.cash)+'</div></div>'
-    +'<div class="hbox"><div class="hlbl">Gross passive</div><div class="hval '+(G.passiveIncome>0?'g':'')+'">'+fmt(G.passiveIncome)+'</div></div>'
-    +'<div class="hbox"><div class="hlbl">Net passive</div><div class="hval '+(np>0?'g':'r')+'">'+fmtS(np)+'</div></div>'
-    +'<div class="hbox"><div class="hlbl">Total expenses</div><div class="hval r">'+fmt(exp)+'</div></div>'
-    +'</div>';
-
-  /* HUD row 2 */
-  h+='<div class="hud hud4" style="margin-bottom:14px">'
-    +'<div class="hbox"><div class="hlbl">Free time</div><div class="hval" style="color:'+timeColor()+'">'+ft+'/24</div></div>'
-    +'<div class="hbox"><div class="hlbl">Tax rate</div><div class="hval o">'+G.taxRate+'%</div></div>'
-    +'<div class="hbox"><div class="hlbl">Discipline</div><div class="hval '+(G.disciplineScore>=5?'g':G.disciplineScore>=2?'':'r')+'">'+G.disciplineScore+'</div></div>'
-    +(G.loanAmount>0
-      ?'<div class="hbox"><div class="hlbl">Loan balance</div><div class="hval r">'+fmt(G.loanAmount)+'</div></div>'
-      :'<div class="hbox"><div class="hlbl">Passive coverage</div><div class="hval '+(np>=exp?'g':'r')+'">'+Math.round((np/Math.max(1,exp))*100)+'%</div></div>')
-    +'</div>';
-
-  /* Time bar */
-  h+='<div style="margin-bottom:16px">'
-    +'<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-bottom:5px"><span>Time freedom</span><span style="color:'+timeColor()+'">'+tpct+'%</span></div>'
-    +'<div style="background:var(--bg3);border-radius:3px;height:5px;overflow:hidden"><div style="height:5px;border-radius:3px;width:'+tpct+'%;background:'+timeColor()+';transition:width 0.5s"></div></div>'
-    +'</div>';
-
-  /* Dealmaker reputation bar */
-  if(G.profile==='dealmaker'){
-    h+='<div style="background:var(--bg2);border:1px solid rgba(154,106,204,.3);border-radius:6px;padding:11px 16px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center">'
-      +'<div><div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--purple);margin-bottom:4px">Reputation</div>'
-      +'<div class="hval p" style="font-size:16px">'+G.reputation+'/10</div></div>'
-      +'<div style="font-size:11px;color:var(--text3)">Deals closed: '+G.dealsDone+'</div>'
-      +'</div>';
-  }
-
-  /* Manager strip */
-  if(G.hasManager){
-    h+='<div class="manager-strip">'
-      +'<div><div class="manager-strip-label">Manager / PA — Active</div>'
-      +'<div class="manager-strip-cost">'+fmt(G.managerMonthlySalary)+'/mo salary — mandatory expense</div></div>'
-      +'<button class="btn btn-red" style="padding:7px 16px;font-size:10px" onclick="PG.fireManager()">Fire</button>'
-      +'</div>';
-  }
-
-  /* Notices */
-  if(win&&win.tier<=3&&!G.consolidationPhase)h+='<div class="notice ngold">WIN CONDITION MET — '+win.title+' &nbsp;<button class="btn btn-gold" onclick="PG.triggerWin()" style="padding:5px 14px;font-size:10px;margin-left:8px">Claim</button></div>';
-  if(win&&win.tier===4)h+='<div class="notice ngold">LEGACY WIN — '+win.title+' &nbsp;<button class="btn btn-gold" onclick="PG.claimWin()" style="padding:5px 14px;font-size:10px;margin-left:8px">Claim</button></div>';
-  /* Dramatic first-cover moment — fire once when passive first crosses expenses */
-  if(np>0&&np>=exp&&!G.passiveFirstFireSeen&&!G.consolidationPhase){
-    G.passiveFirstFireSeen=true;
-    h+='<div class="passive-cover-moment" id="pcm">'
-      +'<div class="pcm-inner">'
-      +'<div class="pcm-pre">The moment you have been building toward</div>'
-      +'<div class="pcm-headline">Your assets now cover<br>every expense you have.</div>'
-      +'<div class="pcm-numbers">'
-      +'<div class="pcm-num"><div class="pcm-num-label">Passive income</div><div class="pcm-num-val g">'+fmt(np)+'/mo</div></div>'
-      +'<div class="pcm-num"><div class="pcm-num-label">Total expenses</div><div class="pcm-num-val r">'+fmt(exp)+'/mo</div></div>'
-      +'<div class="pcm-num"><div class="pcm-num-label">Coverage</div><div class="pcm-num-val" style="color:var(--gold)">'+Math.round((np/Math.max(1,exp))*100)+'%</div></div>'
-      +'</div>'
-      +'<div class="pcm-body">'
-      +'You did not ask for permission.<br>'
-      +'You did not wait for the right moment.<br>'
-      +'You built, month by month, until the machines outearned the man.<br><br>'
-      +'<em>This is what financial freedom looks like from the inside.</em>'
-      +'</div>'
-      +'<button class="btn btn-gold" onclick="PG.dismissPassiveMoment()" style="font-size:13px;padding:14px 40px;letter-spacing:2px;margin-top:8px">I understand what I have built</button>'
-      +'</div></div>';
-  } else if(np>0&&np>=exp&&!win&&!G.consolidationPhase){
-    h+='<div class="notice ngreen">'+G.playerName+', passive income covers all expenses. You could stop working today.</div>';
-  }
-  if(G.consolidationPhase&&G.consecutivePassiveCoverageMonths>0)h+='<div class="notice ngold">Consolidation: '+G.consecutivePassiveCoverageMonths+'/3 months of 3x passive coverage achieved.</div>';
-  if(ft===0)h+='<div class="notice nred">0 free time. Fully trapped. Delegate immediately.</div>';
-  if(ft>0&&ft<=8)h+='<div class="notice nred">Only '+ft+' free time units. Deal-making is restricted. Delegate to free up time.</div>';
-  if(overdueCount>0)h+='<div class="notice norange">'+overdueCount+' overdue expense'+(overdueCount>1?'s':'')+' carried. Pay before they compound further.</div>';
-  if(G.blackSwanExpenseSpike>0)h+='<div class="notice nred">Black swan effect active — all expenses elevated this month.</div>';
-  if(G.consolidationPhase)h+='<div class="notice norange">Inflation factor: '+G.inflationFactor.toFixed(2)+'x — your cost of living grows every year. Keep passive income growing faster.</div>';
-
-  /* First time tutorial hint */
-  if(G.month===1&&G.year===1&&!G.tutorialDismissed){
-    h+='<div style="background:rgba(201,168,76,0.08);border:1px solid var(--border-gold);border-radius:8px;padding:16px;margin-bottom:14px">'
-      +'<div style="font-size:10px;color:var(--gold);letter-spacing:2px;text-transform:uppercase;margin-bottom:8px">First time? Here is how to play</div>'
-      +'<div style="font-size:12px;color:var(--text2);line-height:2">'
-      +'① <strong>Collect income</strong> — collect your salary and any passive income<br>'
-      +'② <strong>Pay expenses</strong> — pay mandatory expenses. Skip optional ones if needed<br>'
-      +'③ <strong>Buy assets</strong> — invest cash into assets that pay you every month<br>'
-      +'④ <strong>Pass the month</strong> — move to the next month and face an event<br><br>'
-      +'<span style="color:var(--text3)">Goal: build enough passive income to cover all your expenses. Then you are free.</span>'
-      +'</div>'
-      +'<button class="btn btn-ghost" style="margin-top:12px;font-size:11px;padding:7px 18px" onclick="PG.dismissTutorial()">Got it — dismiss</button>'
-      +'</div>';
-  }
-
-  /* Lifestyle temptation */
-  if(G.lifestyleTemptationPending){
-    h+='<div class="temptation-card">'
-      +'<div class="temptation-title">The temptation is real.</div>'
-      +'<div class="temptation-body">You have '+fmt(G.cash)+' in cash — more than 3x your monthly expenses.<br>Your friends are upgrading. The lifestyle is calling. Everyone will notice.<br><br>This is the moment that separates the wealthy from the formerly wealthy.</div>'
-      +'<div class="brow" style="justify-content:center">'
-      +'<button class="btn btn-green" onclick="PG.resistTemptation()" style="padding:10px 28px">Resist (+1 discipline)</button>'
-      +'<button class="btn btn-red" onclick="PG.indulgeTemptation()" style="padding:10px 28px">Indulge (add liability)</button>'
-      +'</div></div>';
-  }
-
-  /* Monthly checklist */
-  h+='<div class="sec">Monthly checklist</div>'
-    +'<div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:16px">'
-    +'<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px"><span style="color:var(--text2)">Income collected</span><span style="color:'+(incDone?'var(--green)':'var(--red)')+'">'+( incDone?'Done ✓':'Pending')+'</span></div>'
-    +'<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px"><span style="color:var(--text2)">Mandatory expenses paid</span><span style="color:'+(expDone?'var(--green)':'var(--red)')+'">'+( expDone?'Done ✓':'Pending')+'</span></div>'
-    +'<div style="display:flex;justify-content:space-between;padding:7px 0;font-size:12px"><span style="color:var(--text2)">Salary tax this month</span><span style="color:var(--orange)">'+fmt(taxOwed)+' ('+G.taxRate+'%)</span></div>'
-    +'</div>';
-
-  /* Assets list */
-  if(G.assets.length>0){
-    h+='<div class="sec">Assets ('+G.assets.length+')</div><div class="alist">';
-    G.assets.forEach(function(a,i){
-      var netInc=(a.income||0)-(a.expense||0);
-      var binfo=BUCKET_INFO[a.bucket||'cf'];
-      var mv=assetMarketValue(a);
-      h+='<div class="arow'+(a.newThisMonth?' new':'')+(a.mortgage?' mortgaged':'')+'"><div style="flex:1"><div class="aname">'+a.name+(a.count>1?' x'+a.count:'')+(a.mortgage?'<span class="mortgage-badge">MORTGAGED</span>':'')+'</div>'
-        +(a.newThisMonth
-          ?'<div style="font-size:9px;color:var(--blue);margin-top:2px;letter-spacing:1px">OWNED — income starts next month</div>'
-          :'<div class="atype">'+(binfo?'<span class="stag '+binfo.tagCls+'">'+binfo.label+'</span> ':'')+a.type+'</div>')
-        +'</div>'
-        +'<div class="aright">'
-        +(a.newThisMonth
-          ?'<div style="font-size:11px;color:var(--blue)">Activates next month</div>'
-          :'<div class="ainc">+'+fmt(a.income)+'/mo gross</div>'
-           +'<div class="aexp">−'+fmt(a.expense)+'/mo costs</div>'
-           +(a.mortgage?'<div class="aexp">−'+fmt(a.mortgage.monthlyPayment)+'/mo mortgage</div>':'')
-           +'<div class="anet" style="color:'+(netInc>0?'var(--green)':'var(--red)')+'">'+fmtS(netInc)+' net</div>'
-        )
-        +'<div class="atime '+(a.time===0?'f':'c')+'">'+( a.time===0?'0 time':'−'+a.time+' units')+'</div>'
-        +(a.newThisMonth?'':'<span class="asell" onclick="PG.sellAsset('+i+')">Sell</span>')
-        /* Mortgage button — shown on real estate not new, not already mortgaged */
-        +((!a.newThisMonth&&a.type==='real estate'&&!a.mortgage)
-          ?'<span class="amortgage" onclick="PG.mortgageAsset('+i+')">Mortgage</span>':'')
-        /* Repay button when mortgaged */
-        +((!a.newThisMonth&&a.mortgage)
-          ?'<span class="arepay" onclick="PG.repayMortgage('+i+')">Repay</span>':'')
-        +'</div></div>';
-    });
-    h+='</div>';
-  } else {
-    h+='<div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:18px;text-align:center;margin-bottom:16px;font-size:12px;color:var(--text3);font-style:italic;line-height:1.9">'+G.playerName+', you own nothing that works while you sleep.</div>';
-  }
-
-  /* Liabilities list with Drop habit button */
-  if(G.liabilities.length>0){
-    h+='<div class="sec">Liabilities</div><div class="alist">';
-    G.liabilities.forEach(function(l,li){
-      h+='<div class="arow"><div><div class="aname">'+l.name+'</div><div class="atype">'+l.type+(l.perk?' · '+l.perk:'')+'</div></div>'
-        +'<div class="aright"><div class="ainc" style="color:var(--red)">−'+fmt(l.monthly)+'/mo</div>'
-        +'<span class="adrop" onclick="PG.dropHabit('+li+')">Drop habit</span>'
-        +'</div></div>';
-    });
-    h+='</div>';
-  }
-
-  /* Log */
-  if(G.log.length){
-    var showAll=G.showFullLog;
-    h+='<div class="sec">Activity log'
-      +(G.log.length>5?'<span style="float:right;font-size:10px;color:var(--text3);cursor:pointer;font-weight:400" onclick="PG.toggleLog()">'+(showAll?'Show less ▲':'Show all ('+G.log.length+') ▼')+'</span>':'')
-      +'</div><div class="log">';
-    (showAll?G.log:G.log.slice(0,5)).forEach(function(l){h+='<div class="logline">'+l+'</div>';});
-    h+='</div>';
-  }
-
-  /* Actions */
-  var dealLocked=ft<1;
-  var buyWarning=ft<=4&&ft>0;
-  h+='<div class="sec">Actions</div><div class="brow">'
-    +'<button class="btn btn-green" onclick="PG.goCollect()">Collect income'+(incDone?' ✓':'')+'</button>'
-    +'<button class="btn btn-red" onclick="PG.goPayExp()">Pay expenses'+(expDone?' ✓':'')+(overdueCount>0?' ('+overdueCount+' overdue)':'')+'</button>'
-    +'<button class="btn btn-gold'+(buyWarning?' btn-dim':'')+'" onclick="PG.goBuy()">Buy assets</button>'
-    +(np>0?'<button class="btn btn-blue" onclick="PG.goBorrow()">Borrow capital</button>':'')
-    +(G.profile==='dealmaker'
-      ?(dealLocked
-        ?'<button class="btn btn-dim" title="No free time to make deals">Make a deal (no time)</button>'
-        :'<button class="btn btn-purple" onclick="PG.goDeals()">Make a deal</button>')
-      :'')
-    +'</div>'
-    +'<div class="brow">'
-    +(cp
-      ?'<button class="btn btn-ghost" onclick="PG.passMonth()">Pass this month — next month</button>'
-      :'<button class="btn btn-dim" onclick="PG.passBlocked()">Pass this month — next month</button>')
-    +'</div>';
-
-  s.innerHTML=h;
-}
-
-function rCollect(s){
-  if(!G.monthIncomes)G.monthIncomes=buildMonthIncomes();
-  var items=G.monthIncomes;
-  var done=items.filter(function(i){return i.done;}).length;
-  var total=items.reduce(function(s,i){return i.done&&i.amount>0?s+i.amount:s;},0);
-  var trapQuote=SALARY_TRAP_QUOTES[(G.monthsPlayed)%SALARY_TRAP_QUOTES.length];
-
-  var h='<div class="ch" style="font-size:18px;margin-bottom:6px">Collect income</div>'
-    +'<div style="font-size:12px;color:var(--text3);margin-bottom:14px">Year '+G.year+', Month '+G.month+' — each source collected exactly once this month</div>';
-
-  if(G.hasManager)h+='<div class="notice ngreen">Your Manager / PA collected all income. Full report below.</div>';
-  else h+='<div class="notice ngold">Each income source received exactly once per month.</div>';
-
-  h+='<div style="font-size:11px;color:var(--text3);margin-bottom:16px">'+done+' of '+items.length+' handled &nbsp;·&nbsp; Total: <span style="color:var(--green)">'+fmt(total)+'</span></div>';
-
-  items.forEach(function(item,idx){
-    var taxLine='';
-    if(item.isSalary&&!item.done){var t=salaryTax();taxLine='<div style="font-size:10px;color:var(--orange);margin-top:3px">Tax deducted: '+fmt(t)+' ('+G.taxRate+'%)</div>';}
-    if(item.isPassive&&!item.done){var pt=passiveTax(item.amount);taxLine='<div style="font-size:10px;color:var(--orange);margin-top:3px">Passive tax: '+fmt(pt)+' ('+Math.round(G.taxRate/2)+'%)</div>';}
-    h+='<div class="item-row'+(item.done?' done':'')+'"><div class="item-label">'
-      +'<div class="item-name">'+item.label+'</div>'
-      +'<div class="item-sub">'+item.type+'</div>'
-      +taxLine+'</div>'
-      +'<div class="item-amt inc">'+(item.amount>0?'+'+fmt(item.amount):'—')+'</div>'
-      +(item.done
-        ?'<span style="font-size:11px;color:var(--green)">'+(item.amount===0?'Skipped':'Collected ✓')+'</span>'
-        :'<button class="btn btn-green" style="padding:8px 16px;font-size:11px" onclick="PG.collectOne('+idx+')">Collect</button>')
-      +'</div>';
-  });
-
-  var hasSalary=items.some(function(i){return i.isSalary;});
-  if(hasSalary){h+='<div class="notice nred" style="margin-top:14px;font-style:italic">"'+trapQuote+'"</div>';}
-  h+='<div class="brow"><button class="btn btn-ghost" onclick="PG.goGame()">Back to board</button></div>';
-  s.innerHTML=h;
-}
-
-function rPayExp(s){
-  if(!G.monthExpenses)G.monthExpenses=buildMonthExpenses();
-  var items=G.monthExpenses;
-  var done=items.filter(function(i){return i.done;}).length;
-  var total=items.reduce(function(s,i){return i.done?s+i.amount:s;},0);
-  var overdueItems=items.filter(function(i){return i.isCarried;});
-
-  var h='<div class="ch" style="font-size:18px;margin-bottom:6px">Pay expenses</div>'
-    +'<div style="font-size:12px;color:var(--text3);margin-bottom:14px">Year '+G.year+', Month '+G.month+' — mandatory expenses cannot be skipped</div>';
-
-  if(G.hasManager)h+='<div class="notice ngreen">Your Manager / PA handled all payments in priority order.</div>';
-  else h+='<div class="notice ngold">Mandatory expenses cannot be skipped. Non-mandatory ones carry over — with interest.</div>';
-  if(overdueItems.length>0)h+='<div class="notice norange">'+overdueItems.length+' overdue — skipping again adds a 10% late fee next month.</div>';
-
-  h+='<div style="font-size:11px;color:var(--text3);margin-bottom:16px">'+done+' of '+items.length+' handled &nbsp;·&nbsp; Total paid: <span style="color:var(--red)">'+fmt(total)+'</span></div>';
-
-  items.forEach(function(item,idx){
-    var isOverdue=item.isCarried;
-    h+='<div class="item-row'+(item.done?' done':'')+(item.mandatory?' mandatory':isOverdue?' overdue':'')+'"><div class="item-label">'
-      +'<div class="item-name">'+item.label
-      +(item.mandatory?'<span style="font-size:9px;color:var(--red);letter-spacing:1px;text-transform:uppercase;margin-left:6px">mandatory</span>':'')
-      +(isOverdue?'<span style="font-size:9px;color:var(--orange);letter-spacing:1px;text-transform:uppercase;margin-left:6px">overdue</span>':'')
-      +'</div>'
-      +'<div class="item-sub">'+item.type+'</div></div>'
-      +'<div class="item-amt exp">−'+fmt(item.amount)+'</div>';
-    if(item.done)h+='<span style="font-size:11px;color:var(--text3)">Paid ✓</span>';
-    else if(item.mandatory)h+='<button class="btn btn-red" style="padding:8px 16px;font-size:11px" onclick="PG.payOne('+idx+')">Pay</button>';
-    else h+='<div style="display:flex;gap:6px"><button class="btn btn-red" style="padding:8px 14px;font-size:11px" onclick="PG.payOne('+idx+')">Pay</button><button class="btn btn-ghost" style="padding:8px 14px;font-size:11px" onclick="PG.skipOne('+idx+')">Skip</button></div>';
-    h+='</div>';
-  });
-  h+='<div class="brow"><button class="btn btn-ghost" onclick="PG.goGame()">Back to board</button></div>';
-  s.innerHTML=h;
-}
-
-function rBuy(s){
-  recalc();
-  var ft=freeTime();
-  var h='<div class="ch" style="font-size:18px;margin-bottom:6px">Buy assets or liabilities</div>'
-    +'<div style="font-size:12px;color:var(--text3);margin-bottom:14px">You own the asset immediately. Income and expenses start from next month.</div>'
-    +'<div class="hud hud2" style="margin-bottom:14px">'
-    +'<div class="hbox"><div class="hlbl">Available cash</div><div class="hval">'+fmt(G.cash)+'</div></div>'
-    +'<div class="hbox"><div class="hlbl">Net passive/mo</div><div class="hval '+(netPassive()>0?'g':'r')+'">'+fmtS(netPassive())+'</div></div>'
-    +'</div>';
-
-  if(ft<=4&&ft>0)h+='<div class="notice nred">Low free time. Prioritise delegation assets — buy back your time.</div>';
-  if(G.delegDiscount)h+='<div class="notice nblue">Delegation 50% off this month.</div>';
-  if(G.opmDiscount)h+='<div class="notice nblue">OPM card — next investment 25% off.</div>';
-
-  var bucketOrder=['cf','ap','eq','dl'];
-  bucketOrder.forEach(function(bkey){
-    var binfo=BUCKET_INFO[bkey];
-    var bucketAssets=ASSET_DEFS.filter(function(item){return item.bucket===bkey;});
-    h+='<div class="sec" style="margin-top:18px"><span class="bucket-label '+binfo.cls+'">'+binfo.label+'</span> &nbsp;'+binfo.desc+'</div>';
-    h+='<div class="sgrid">';
-    bucketAssets.forEach(function(item){
-      var owned=G.assets.find(function(a){return a.id===item.id&&!a.newThisMonth;});
-      var isMgr=item.id==='hire_mgr';
-      if(isMgr&&G.hasManager){h+='<div class="scard sdim"><div class="sname">'+item.name+' ✓</div><div class="scost">Already hired</div><div class="sdesc">Manager salary: '+fmt(G.managerMonthlySalary)+'/mo</div></div>';return;}
-      if(!item.repeatable&&owned){h+='<div class="scard sdim"><div class="sname">'+item.name+' ✓</div><div class="scost">Owned</div><div class="sdesc">'+item.desc+'</div></div>';return;}
-
-      var cost=item.cost;
-      if(G.delegDiscount&&item.type==='delegation')cost=Math.floor(cost*0.5);
-      if(G.opmDiscount&&item.type!=='delegation')cost=Math.floor(cost*0.75);
-
-      /* Manager: 0 upfront, recruitment fee instead */
-      var displayCost=isMgr?sc(5000):sc(cost);
-      var mgrSalary=isMgr?sc(12000):0;
-      var sopMaint=item.id==='build_sop'?sc(2000):0;
-      var sc_inc=sc(item.income);var sc_exp=sc(item.expense);var sc_net=sc_inc-sc_exp;
-      var canAfford=G.cash>=displayCost;
-
-      h+='<div class="scard'+(canAfford?'':' sdim')+'" onclick="'+(canAfford?'PG.buyAsset(\''+item.id+'\','+displayCost+','+item.time+','+sc_inc+','+sc_exp+',\''+item.type+'\',\''+item.name.replace(/'/g,"\\'")+'\','+item.repeatable+',\''+item.bucket+'\')':'')+'">'
-        +'<div class="sname">'+item.name+(item.type==='delegation'?'<span class="stag tag-del">delegate</span>':'')+(item.repeatable?'<span class="stag tag-stack">stackable</span>':'')+(owned&&item.repeatable?' x'+(owned.count||1):'')+'</div>'
-        +(isMgr
-          ?'<div class="scost">Recruitment fee: '+fmt(displayCost)+'</div><div class="sexp">Salary: '+fmt(mgrSalary)+'/mo (mandatory)</div>'
-          :item.id==='build_sop'
-            ?'<div class="scost">Cost: '+fmt(displayCost)+'</div><div class="sexp">Monthly maintenance: '+fmt(sopMaint)+'/mo</div>'
-            :'<div class="scost">Cost: '+fmt(displayCost)+(canAfford?'':' — need '+fmt(displayCost-G.cash)+' more')+'</div>')
-        +(sc_inc>0?'<div class="sinc">+'+fmt(sc_inc)+'/mo income</div>':'')
-        +(sc_exp>0&&!isMgr?'<div class="sexp">−'+fmt(sc_exp)+'/mo costs</div>':'')
-        +(sc_inc>0?'<div class="snet" style="color:'+(sc_net>0?'var(--green)':'var(--red)')+'">'+fmtS(sc_net)+' net/mo</div>':'')
-        +'<div class="stime '+(item.time<=0?'f':'c')+'">Time: '+(item.time===0?'0 units':item.time>0?'+'+item.time+' units':item.time+' units')+'</div>'
-        +'<div class="sdesc">'+item.desc+'</div></div>';
-    });
-    h+='</div>';
-  });
-
-  /* ── Dealmaker-only: passive income from reputation ── */
-  if(G.profile==='dealmaker'&&typeof DEALMAKER_PASSIVE_DEALS!=='undefined'){
-    var dmAvailable=DEALMAKER_PASSIVE_DEALS.filter(function(d){return d.condition(G);});
-    if(dmAvailable.length>0){
-      h+='<div class="sec" style="margin-top:18px"><span class="bucket-label bucket-cf">Dealmaker</span> &nbsp;Convert your reputation into recurring passive income</div>';
-      h+='<div class="sgrid">';
-      dmAvailable.forEach(function(item){
-        var owned=G.assets.find(function(a){return a.id===item.id&&!a.newThisMonth;});
-        var sc_inc=sc(item.income);var sc_exp=sc(item.expense);var sc_net=sc_inc-sc_exp;
-        var repOk=G.reputation>=item.repReq;
-        var timeOk=freeTime()>=item.time;
-        var canBuy=repOk&&timeOk;
-        h+='<div class="scard'+(canBuy?'':' sdim')+'" onclick="'+(canBuy?'PG.buyAsset(\''+item.id+'\',0,'+item.time+','+sc_inc+','+sc_exp+',\''+item.type+'\',\''+item.name.replace(/'/g,"\\'")+'\','+item.repeatable+',\''+item.bucket+'\')':'')+'">'
-          +'<div class="sname">'+item.name+'<span class="stag tag-cf">passive</span>'+(owned&&item.repeatable?' x'+(owned.count||1):'')+'</div>'
-          +'<div class="scost">No upfront cost — reputation currency</div>'
-          +'<div style="font-size:10px;color:var(--purple);margin-bottom:4px">Requires: Rep '+item.repReq+' · '+item.time+' time units</div>'
-          +'<div class="sinc">+'+fmt(sc_inc)+'/mo income</div>'
-          +'<div class="sexp">−'+fmt(sc_exp)+'/mo costs</div>'
-          +'<div class="snet" style="color:'+(sc_net>0?'var(--green)':'var(--red)')+'">'+fmtS(sc_net)+' net/mo</div>'
-          +'<div class="sdesc">'+item.desc+'</div></div>';
-      });
-      h+='</div>';
-    }
-  }
-
-  h+='<div class="sec" style="margin-top:18px">Liabilities — things that cost you every month</div><div class="sgrid">';
-  LIABILITIES.forEach(function(item){
-    var owned=G.liabilities.find(function(l){return l.id===item.id;});
-    var sc_cost=sc(item.cost);var sc_mo=sc(item.monthly);
-    var canAfford=sc_cost===0||G.cash>=sc_cost;
-    h+='<div class="scard'+(owned?' sdim':!canAfford?' sdim':'')+'" onclick="'+(owned||!canAfford?'':'PG.buyLiability(\''+item.id+'\','+sc_cost+','+sc_mo+')')+'">'
-      +'<div class="sname">'+item.name+'<span class="stag tag-liab">liability</span>'+(item.type==='status'?'<span class="stag tag-status">status</span>':'')+(owned?' ✓':'')+'</div>'
-      +(sc_cost>0?'<div class="scost">Purchase: '+fmt(sc_cost)+'</div>':'<div class="scost">No upfront cost</div>')
-      +'<div class="sinc" style="color:var(--red)">−'+fmt(sc_mo)+'/mo ongoing</div>'
-      +(item.perk?'<div style="font-size:10px;color:var(--purple);margin-bottom:5px">'+item.perk+'</div>':'')
-      +'<div class="sdesc">'+item.desc+'</div></div>';
-  });
-  h+='</div>';
-
-  h+='<div class="sec">Change housing</div><div class="choice-grid">';
-  LOC.housing.forEach(function(hh){
-    h+='<div class="choice-card'+(G.housing&&G.housing.id===hh.id?' active':'')+'" onclick="PG.changeHousing(\''+hh.id+'\')">'
-      +'<div class="choice-name">'+hh.name+(G.housing&&G.housing.id===hh.id?' (current)':'')+'</div>'
-      +'<div class="choice-cost">'+fmt(hh.cost)+'/mo</div>'
-      +'<div class="choice-desc">'+hh.desc+'</div>'
-      +(hh.perk?'<div class="choice-perk">'+hh.perk+'</div>':'')+'</div>';
-  });
-  h+='</div><div class="sec">Change groceries</div><div class="choice-grid">';
-  LOC.groceries.forEach(function(gr){
-    h+='<div class="choice-card'+(G.grocery&&G.grocery.id===gr.id?' active':'')+'" onclick="PG.changeGrocery(\''+gr.id+'\')">'
-      +'<div class="choice-name">'+gr.name+(G.grocery&&G.grocery.id===gr.id?' (current)':'')+'</div>'
-      +'<div class="choice-cost">'+fmt(gr.cost)+'/mo</div>'
-      +'<div class="choice-desc">'+gr.desc+'</div>'+'</div>';
-  });
-  h+='</div>';
-  h+='<div class="brow"><button class="btn btn-ghost" onclick="PG.goGame()">Back to board</button></div>';
-  s.innerHTML=h;
-}
-
-function rDeals(s){
-  var ft=freeTime();
-  var filter=G.dealFilter||'all';
-  var cats={};
-  DEALS.forEach(function(d){if(!cats[d.cat])cats[d.cat]=[];cats[d.cat].push(d);});
-  var allCats=Object.keys(cats);
-
-  /* Count available deals for badge */
-  var availCount=DEALS.filter(function(d){
-    return G.reputation>=d.repReq&&ft>=d.time&&dealPrereqMet(d);
-  }).length;
-
-  var h='<div class="ch" style="font-size:18px;margin-bottom:6px">Make a deal</div>'
-    +'<div style="font-size:12px;color:var(--text3);margin-bottom:14px">You make money connecting value — not owning it. Reputation is everything.</div>'
-    +'<div class="hud hud3" style="margin-bottom:14px">'
-    +'<div class="hbox"><div class="hlbl">Cash</div><div class="hval">'+fmt(G.cash)+'</div></div>'
-    +'<div class="hbox"><div class="hlbl">Reputation</div><div class="hval p">'+G.reputation+'/10</div></div>'
-    +'<div class="hbox"><div class="hlbl">Free time</div><div class="hval" style="color:'+timeColor()+'">'+ft+'/24</div></div>'
-    +'</div>'
-    +'<div class="notice npurple">Failed deals cost reputation only — not money. Build reputation by closing small deals first.</div>';
-
-  /* Filter bar */
-  h+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;align-items:center">'
-    +'<span style="font-size:10px;color:var(--text3);letter-spacing:2px;text-transform:uppercase;margin-right:4px">Filter:</span>'
-    +'<button class="btn '+(filter==='all'?'btn-purple':'btn-ghost')+'" style="padding:6px 14px;font-size:10px" onclick="PG.setDealFilter(\'all\')">All ('+DEALS.length+')</button>'
-    +'<button class="btn '+(filter==='available'?'btn-green':'btn-ghost')+'" style="padding:6px 14px;font-size:10px" onclick="PG.setDealFilter(\'available\')">Available now ('+availCount+')</button>'
-    +allCats.map(function(cat){
-      var catCount=cats[cat].length;
-      return '<button class="btn '+(filter===cat?'btn-gold':'btn-ghost')+'" style="padding:6px 14px;font-size:10px" onclick="PG.setDealFilter(\''+cat+'\')">'+cat+' ('+catCount+')</button>';
-    }).join('')
-    +'</div>';
-
-  var catsToShow=filter==='all'||filter==='available'?allCats:[filter];
-  var anyShown=false;
-
-  catsToShow.forEach(function(cat){
-    var deals=cats[cat]||[];
-    if(filter==='available'){
-      deals=deals.filter(function(d){return G.reputation>=d.repReq&&ft>=d.time&&dealPrereqMet(d);});
-    }
-    if(!deals.length)return;
-    anyShown=true;
-    h+='<div class="sec">'+cat+'</div>';
-    deals.forEach(function(deal){
-      var repLocked=G.reputation<deal.repReq;
-      var timeLocked=ft<deal.time;
-      var prereqLocked=!dealPrereqMet(deal);
-      var locked=repLocked||timeLocked||prereqLocked;
-      var missing=prereqLocked?missingPrereqs(deal):[];
-      h+='<div class="deal-card'+(locked?' deal-locked':'')+'" onclick="'+(locked?'':'PG.executeDeal(\''+deal.id+'\')')+'">'
-        +'<div class="deal-name">'+deal.name+'</div>'
-        +'<div class="deal-meta">'
-        +'<span class="deal-tag" style="background:rgba(154,106,204,.12);color:var(--purple);border:1px solid rgba(154,106,204,.25)">Rep: '+deal.repReq+'</span>'
-        +'<span class="deal-tag" style="background:rgba(74,138,204,.12);color:var(--blue);border:1px solid rgba(74,138,204,.25)">Time: '+deal.time+'</span>'
-        +'<span class="deal-tag" style="background:rgba(58,170,106,.12);color:var(--green);border:1px solid rgba(58,170,106,.25)">'+fmt(sc(deal.min))+'–'+fmt(sc(deal.max))+'</span>'
-        +'<span class="deal-tag" style="background:rgba(201,168,76,.08);color:var(--gold);border:1px solid var(--border-gold)">'+Math.round(deal.rate*100)+'% success</span>'
-        +(deal.prereq&&deal.prereq.length?'<span class="deal-tag" style="background:rgba(204,140,44,.1);color:var(--orange);border:1px solid rgba(204,140,44,.3)">pipeline</span>':'')
-        +'</div>'
-        +'<div style="font-size:11px;color:var(--text2);line-height:1.7">'+deal.desc+'</div>'
-        +(repLocked?'<div class="deal-prereq-missing">Needs reputation '+deal.repReq+'</div>':'')
-        +(timeLocked?'<div class="deal-prereq-missing">Needs '+deal.time+' free time units</div>':'')
-        +(prereqLocked&&missing.length>0?'<div class="deal-prereq-missing">Complete first: <span>'+missing.join(', ')+'</span></div>':'')
-        +'</div>';
-    });
-  });
-
-  if(!anyShown){
-    h+='<div style="text-align:center;padding:32px 20px;color:var(--text3);font-size:12px;font-style:italic">'
-      +'No deals match this filter right now.<br>'
-      +(filter==='available'?'Build reputation or free up time to unlock more deals.':'')
-      +'</div>';
-  }
-
-  h+='<div class="brow"><button class="btn btn-ghost" onclick="PG.goGame()">Back to board</button></div>';
-  s.innerHTML=h;
-}
-
-function rEvent(s){
-  var e=G.eventCard;
-  var isBlackSwan=e.type==='blackswan';
-  var isOpportunity=e.type==='opportunity'||e.type==='market';
-  var ecls=e.type==='opportunity'?'epos':e.type==='setback'?'eneg':e.type==='market'?'epurp':isBlackSwan?'eneg':'eneu';
-  s.innerHTML='<div class="ch" style="font-size:11px;letter-spacing:3px;margin-bottom:18px">'+(isBlackSwan?'⚠ BLACK SWAN EVENT':'Event card')+' — Y'+G.year+' M'+G.month+'</div>'
-    +'<div class="ecard '+e.type+'">'
-    +'<div class="etype '+e.type+'">'+(isBlackSwan?'BLACK SWAN':e.type.toUpperCase())+'</div>'
-    +'<div class="etitle">'+e.title+'</div>'
-    +'<div class="ebody">'+e.body+'</div>'
-    +'<div class="eeffect '+ecls+'">'+e.effect+'</div>'
-    +'</div>'
-    +'<div class="brow"><button class="btn btn-gold" onclick="PG.acceptEvent()">Accept outcome</button></div>';
-  /* Visual flash for dramatic events */
-  if(isBlackSwan){
-    var f=document.createElement('div');
-    f.className='event-flash flash-red';
-    document.body.appendChild(f);
-    setTimeout(function(){if(f.parentNode)f.parentNode.removeChild(f);},600);
-  } else if(isOpportunity){
-    var f=document.createElement('div');
-    f.className='event-flash flash-green';
-    document.body.appendChild(f);
-    setTimeout(function(){if(f.parentNode)f.parentNode.removeChild(f);},400);
-  }
-}
-  
-/* ─── SMART RESPONSE SCREEN ─── */
-function rSmartResponse(s){
-  var e=G.eventCard;
-  var resp=EVENT_RESPONSES[e.title];
-  if(!resp){G.screen='endmonth';render();return;}
-  var tier=resp.check(G);
-  var data=resp[tier];
-  var tierLabel=tier==='prepared'?'Well prepared':tier==='partial'?'Partially prepared':'Unprepared';
-  var tierCls=tier;
-
-  var h='<div class="ch" style="font-size:11px;letter-spacing:3px;margin-bottom:18px">Event response — Y'+G.year+' M'+G.month+'</div>'
-    +'<div class="ecard '+e.type+'">'
-    +'<div class="etype '+e.type+'">'+e.type.toUpperCase()+'</div>'
-    +'<div class="etitle">'+e.title+'</div>'
-    +'<div class="ebody">'+e.body+'</div>'
-    +'</div>'
-    +'<div class="response-screen">'
-    +'<div class="response-header">'
-    +'<div class="response-tier '+tierCls+'">'+tierLabel+'</div>'
-    +'<div style="font-size:14px;color:var(--text);font-weight:600;margin-bottom:8px">'+data.title+'</div>'
-    +'<div style="font-size:12px;color:var(--text2);line-height:1.8">'+data.body+'</div>'
-    +'<div style="font-size:10px;color:var(--text3);margin-top:8px;font-style:italic">'+data.why+'</div>'
-    +'</div>'
-    +'</div>'
-    +'<div class="brow"><button class="btn btn-gold" onclick="PG.acceptSmartResponse()">Accept outcome</button></div>';
-  s.innerHTML=h;
-}
-
-function rEnd(s){
-  recalc();
-  var ft=freeTime();
-  var exp=totalExp();
-  var result=G._lastSettleResult||{collectedIncome:0,totalTax:0,paidExp:0,net:0,seBonus:0,newCarried:[]};
-  var np=netPassive();
-  var win=checkWin();
-  var nm=G.month>=12?1:G.month+1;var ny=G.month>=12?G.year+1:G.year;
-
-  var h='<div class="ch" style="font-size:18px;margin-bottom:6px">Month '+G.month+' settled</div>'
-    +'<div style="font-size:12px;color:var(--text3);margin-bottom:18px">Year '+G.year+'</div>'
-    +'<div class="hud hud4" style="margin-bottom:16px">'
-    +'<div class="hbox"><div class="hlbl">Income collected</div><div class="hval g" style="font-size:13px">'+fmt(result.collectedIncome)+'</div></div>'
-    +'<div class="hbox"><div class="hlbl">Tax paid</div><div class="hval o" style="font-size:13px">'+fmt(result.totalTax)+'</div></div>'
-    +'<div class="hbox"><div class="hlbl">Expenses paid</div><div class="hval r" style="font-size:13px">'+fmt(result.paidExp)+'</div></div>'
-    +'<div class="hbox"><div class="hlbl">Net this month</div><div class="hval" style="font-size:13px;color:'+(result.net>=0?'var(--green)':'var(--red)')+'">'+fmtS(result.net)+'</div></div>'
-    +'</div>'
-    +'<div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:14px">'
-    +(result.seBonus>0?'<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px"><span style="color:var(--text2)">SE delegation bonus</span><span style="color:var(--green);font-weight:600">+'+fmt(result.seBonus)+'</span></div>':'')
-    +'<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px"><span style="color:var(--text2)">Total cash now</span><span style="font-weight:600">'+fmt(G.cash)+'</span></div>'
-    +'<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px"><span style="color:var(--text2)">Net passive/mo</span><span style="color:'+(np>0?'var(--green)':'var(--red)')+';font-weight:600">'+fmtS(np)+'/mo</span></div>'
-    +'<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px"><span style="color:var(--text2)">Tax rate</span><span style="color:var(--orange);font-weight:600">'+G.taxRate+'%</span></div>'
-    +'<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px"><span style="color:var(--text2)">Free time</span><span style="color:'+timeColor()+';font-weight:600">'+ft+'/24</span></div>'
-    +'<div style="display:flex;justify-content:space-between;padding:7px 0;font-size:12px"><span style="color:var(--text2)">Passive coverage</span><span style="color:'+(np>=exp?'var(--green)':'var(--red)')+';font-weight:600">'+Math.round((np/Math.max(1,exp))*100)+'%</span></div>'
-    +'</div>';
-
-  if(result.newCarried&&result.newCarried.length>0)h+='<div class="notice norange">'+result.newCarried.length+' expense'+(result.newCarried.length>1?'s':'')+' carried to next month. Late fees apply from month 2.</div>';
-  if(G.passiveIncome===0)h+='<div class="notice nred">Zero passive income. If you stopped working — everything stops.</div>';
-  if(ft<=4&&ft>0)h+='<div class="notice nred">Only '+ft+' free time. Delegate now.</div>';
-  if(ft===0)h+='<div class="notice nred">0 free time. Your business owns you completely.</div>';
-  if(win)h+='<div class="notice ngold">WIN UNLOCKED — '+win.title+'</div>';
-  if(G.profile==='employee'&&G.assets.length===0)h+='<div class="notice nblue">Employee trap: Salary grew +'+fmt(sc(5000))+' — but you are still fully dependent on it.</div>';
-  if(result.totalTax>0)h+='<div class="notice norange">Taxes paid this month: '+fmt(result.totalTax)+'. Delegation assets reduce your tax rate by 5% each.</div>';
-
-  h+='<div class="brow">'
-    +(win&&!G.consolidationPhase&&win.tier<=3?'<button class="btn btn-gold" onclick="PG.triggerWin()">Claim victory ✦</button>':'')
-    +(win&&win.tier===4?'<button class="btn btn-gold" onclick="PG.claimWin()">Claim legacy ★</button>':'')
-    +'<button class="btn btn-green" onclick="PG.nextMonth()">Next month — Y'+ny+' M'+nm+'</button>'
-    +'</div>';
-  s.innerHTML=h;
-}
-
-function rBorrow(s){
-  recalc();
-  var np=netPassive();
-  var maxLoan=Math.max(0,np*3);
-  var h='<div class="ch" style="font-size:20px;margin-bottom:6px">Leverage — borrow capital</div>'
-    +'<div style="font-size:12px;color:var(--text3);margin-bottom:18px;line-height:1.8">The wealthy use debt as a tool — not a burden. Borrow to buy cashflow assets. Never borrow to fund lifestyle.</div>'
-    +'<div class="hud hud3" style="margin-bottom:18px">'
-    +'<div class="hbox"><div class="hlbl">Net passive/mo</div><div class="hval '+(np>0?'g':'r')+'">'+fmtS(np)+'</div></div>'
-    +'<div class="hbox"><div class="hlbl">Max borrow (3x passive)</div><div class="hval">'+fmt(maxLoan)+'</div></div>'
-    +'<div class="hbox"><div class="hlbl">Current loan</div><div class="hval '+(G.loanAmount>0?'r':'')+'">'+fmt(G.loanAmount)+'</div></div>'
-    +'</div>';
-
-  if(np<=0){
-    h+='<div class="notice nred">You need positive passive income before you can borrow. Lenders need to see your assets working.</div>';
-  } else if(G.loanAmount>0){
-    h+='<div class="notice norange">Active loan: '+fmt(G.loanAmount)+' — Monthly interest: '+fmt(G.loanMonthlyPayment)+' (mandatory expense)<br>Repaying early saves you interest every month.</div>'
-      +'<div class="brow">'
-      +'<button class="btn btn-green" onclick="PG.repayLoan()">Repay full loan ('+fmt(G.loanAmount)+')</button>'
-      +'<button class="btn btn-ghost" onclick="PG.goGame()">Back to board</button>'
-      +'</div>';
-  } else {
-    var loan1=Math.round(np*1);var loan2=Math.round(np*2);var loan3=Math.round(np*3);
-    var int1=Math.round(loan1*0.08/12);var int2=Math.round(loan2*0.08/12);var int3=Math.round(loan3*0.08/12);
-    h+='<div class="notice ngold">8% annual interest — mandatory monthly payment. Use borrowed capital to buy assets, not liabilities.</div>'
-      +'<div class="sec">Choose loan size</div>'
-      +'<div class="sgrid">'
-      +'<div class="scard" onclick="PG.takeLoan('+loan1+','+int1+')">'
-        +'<div class="sname">Conservative — 1x passive</div>'
-        +'<div class="scost">Borrow: '+fmt(loan1)+'</div>'
-        +'<div class="sexp">Monthly interest: '+fmt(int1)+'</div>'
-        +'<div class="sdesc">Borrow equal to one month\'s passive income. Low risk. Good for one asset purchase.</div>'
-        +'</div>'
-      +'<div class="scard" onclick="PG.takeLoan('+loan2+','+int2+')">'
-        +'<div class="sname">Moderate — 2x passive</div>'
-        +'<div class="scost">Borrow: '+fmt(loan2)+'</div>'
-        +'<div class="sexp">Monthly interest: '+fmt(int2)+'</div>'
-        +'<div class="sdesc">Borrow twice your monthly passive. Meaningful leverage. Requires asset discipline.</div>'
-        +'</div>'
-      +'<div class="scard" onclick="PG.takeLoan('+loan3+','+int3+')">'
-        +'<div class="sname">Aggressive — 3x passive</div>'
-        +'<div class="scost">Borrow: '+fmt(loan3)+'</div>'
-        +'<div class="sexp">Monthly interest: '+fmt(int3)+'</div>'
-        +'<div class="sdesc">Maximum leverage. Deploy immediately into cashflow assets or the interest destroys you.</div>'
-        +'</div>'
-      +'</div>';
-  }
-  h+='<div class="brow"><button class="btn btn-ghost" onclick="PG.goGame()">Back to board</button></div>';
-  s.innerHTML=h;
-}
-
-/* ─── LEGEND EVENT CHECK ─── */
-function checkLegend(){
-  if(!LEGEND_EVENTS||!LEGEND_EVENTS.length)return null;
-  if(G.monthsPlayed<8)return null;
-  /* Fire at most one legend per game, spaced at least 5 months apart */
-  var lastLeg=G.lastLegendMonth||0;
-  if(G.monthsPlayed-lastLeg<5)return null;
-  var eligible=LEGEND_EVENTS.filter(function(l){return G.legendFired.indexOf(l.id)===-1;});
-  if(!eligible.length)return null;
-  /* 25% chance each eligible month */
-  if(Math.random()>0.25)return null;
-  return eligible[Math.floor(Math.random()*eligible.length)];
-}
-
-/* ─── SCENARIO SCREEN ─── */
-function rScenario(s){
-  var sc_obj=G.pendingScenario;if(!sc_obj){G.screen='game';render();return;}
-  var h='<div class="ch" style="font-size:11px;letter-spacing:3px;margin-bottom:18px">Historical deal scenario — Y'+G.year+' M'+G.month+'</div>'
-    +'<div class="ecard scenario">'
-    +'<div class="etype scenario">Deal scenario</div>'
-    +'<div class="etitle">'+sc_obj.title+'</div>'
-    +'<div class="ebody">'+sc_obj.setup+'</div>'
-    +'</div>'
-    +'<div class="sec" style="margin-top:14px">Your decision</div>'
-    +'<div class="scenario-choices">';
-  sc_obj.choices.forEach(function(ch){
-    h+='<div class="scenario-choice" onclick="PG.chooseScenario(\''+sc_obj.id+'\',\''+ch.id+'\')">'
-      +'<div class="sc-label">'+ch.label+'</div>'
-      +'<div class="sc-desc">'+ch.desc+'</div>'
-      +'<div class="sc-hint">'+ch.hint+'</div>'
-      +'</div>';
-  });
-  h+='</div>';
-  s.innerHTML=h;
-}
-
-function rScenarioOutcome(s){
-  var out=G.pendingOutcome;if(!out){G.screen='game';render();return;}
-  var h='<div class="ch" style="font-size:11px;letter-spacing:3px;margin-bottom:18px">What happened — Y'+G.year+' M'+G.month+'</div>'
-    +'<div class="scenario-outcome">'
-    +'<div class="outcome-title">'+out.title+'</div>'
-    +'<div class="outcome-body">'+out.body+'</div>'
-    +'<div class="eeffect '+(out.effectLabel&&out.effectLabel.indexOf('+')===0?'epos':'eneu')+'">'+out.effectLabel+'</div>'
-    +'<div class="outcome-lesson"><em>The lesson:</em> '+out.lesson+'</div>'
-    +'</div>'
-    +'<div class="brow"><button class="btn btn-gold" onclick="PG.finishScenario()">Continue</button></div>';
-  s.innerHTML=h;
-}
-
-/* ─── LEGEND EVENT SCREEN ─── */
-function rLegend(s){
-  var leg=G.pendingLegend;if(!leg){G.screen='game';render();return;}
-  s.innerHTML='<div class="ch" style="font-size:11px;letter-spacing:3px;margin-bottom:18px">A moment worth remembering — Y'+G.year+' M'+G.month+'</div>'
-    +'<div class="ecard legend" style="text-align:center">'
-    +'<div class="etype legend">LEGEND</div>'
-    +'<div class="etitle">'+leg.title+'</div>'
-    +'<div class="ebody">'+leg.body+'</div>'
-    +'<div class="eeffect eneu" style="margin-bottom:16px">'+leg.effectLabel+'</div>'
-    +'<div class="outcome-lesson" style="font-size:12px;color:var(--text3);font-style:italic;line-height:1.8;border-top:1px solid var(--border);padding-top:14px;margin-top:4px"><em>The lesson:</em> '+leg.lesson+'</div>'
-    +'</div>'
-    +'<div class="brow"><button class="btn btn-gold" onclick="PG.acknowledgeLegend()">Carry this forward</button></div>';
-}
-
-/* ─── SURVIVAL SCREEN ─── */
-function rSurvival(s){
-  var step=G.survivalStep;
-  var h='';
-  if(step===1){
-    var a=G.survivalAsset;
-    var def=ASSET_DEFS.find(function(d){return d.id===a.id||a.id.indexOf(d.id)===0;});
-    var sellP=def?def.sellVal(a):sc(50000);
-    h='<div class="survival-card">'
-      +'<div class="survival-step">Step 1 of 3 — forced liquidation</div>'
-      +'<div class="survival-title">Asset-rich. Cash-poor.</div>'
-      +'<div class="survival-body">You are out of cash and cannot cover your mandatory expenses.<br><br>'
-      +'Your cheapest available asset — <strong>'+a.name+'</strong> — can be force-sold at market value to survive this month.</div>'
-      +'<div style="font-size:13px;color:var(--gold);margin-bottom:18px">Sale proceeds: '+fmt(sellP)+'</div>'
-      +'<div class="brow" style="justify-content:center">'
-      +'<button class="btn btn-red" onclick="PG.forceSellSurvival('+sellP+')">Force-sell '+a.name+' — survive this month</button>'
-      +'</div>'
-      +'</div>';
-  } else if(step===2){
-    var ma=G.survivalMortgageAsset;
-    var mv2=assetMarketValue(ma);
-    var mortgageProceeds=Math.floor(mv2*0.6);
-    h='<div class="survival-card">'
-      +'<div class="survival-step">Step 2 of 3 — emergency mortgage</div>'
-      +'<div class="survival-title">Borrowing against your own asset to survive.</div>'
-      +'<div class="survival-body">No sellable assets available. An emergency mortgage has been placed on <strong>'+ma.name+'</strong>.<br><br>'
-      +'You will receive '+fmt(mortgageProceeds)+' now. Interest payments begin next month at 18% per annum.</div>'
-      +'<div class="brow" style="justify-content:center">'
-      +'<button class="btn btn-orange" onclick="PG.emergencyMortgage()">Accept emergency mortgage</button>'
-      +'</div>'
-      +'</div>';
-  } else {
-    h='<div style="text-align:center;padding:40px 20px">'
-      +'<div style="font-size:9px;letter-spacing:4px;text-transform:uppercase;color:var(--red);margin-bottom:24px">System failure</div>'
-      +'<div class="ch" style="font-size:26px;color:var(--red);margin-bottom:16px">Bankruptcy</div>'
-      +'<div style="font-size:13px;color:var(--text2);margin-bottom:22px">No assets to sell. No assets to mortgage. You cannot meet your obligations.</div>'
-      +'<button class="btn btn-red" onclick="PG.declareBankruptcy()">See what happened</button>'
-      +'</div>';
-  }
-  s.innerHTML=h;
-}
-
-function rBankruptcy(s){
-  var h='<div class="bankruptcy">'
-    +'<div class="bk-title">Bankruptcy</div>'
-    +'<div class="bk-sub">The money ran out before the lesson did</div>'
-    +'<div class="bk-lesson">Every fortune begins with discipline.<br>Every bankruptcy begins with a skipped lesson.<br>The numbers do not lie. <em>You did.</em></div>'
-    +'<div class="bk-timeline">'
-    +'<div class="bk-timeline-title">What happened</div>';
-  (G.bankruptcyLog||[]).slice(0,12).forEach(function(entry){
-    h+='<div class="bk-entry">'+entry+'</div>';
-  });
-  h+='</div>'
-    +'<div class="brow" style="justify-content:center">'
-    +'<button class="btn btn-gold" onclick="PG.reset()">Play again</button>'
-    +'</div>'
-    +'<div style="font-size:9px;letter-spacing:3px;color:var(--text3);text-transform:uppercase;margin-top:24px">Billionaire by 20 — Think like a plutocrat</div>'
-    +'</div>';
-  s.innerHTML=h;
-}
-
-function rWin(s){
-  recalc();var ft=freeTime();var win=checkWin()||WINS[0];var exp=totalExp();
-  var np=netPassive();
-  /* Asset breakdown */
-  var assetBreakdown='';
-  G.assets.forEach(function(a){
-    var net=(a.income||0)-(a.expense||0);
-    assetBreakdown+='<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:11px">'
-      +'<span style="color:var(--text2)">'+a.name+(a.count>1?' x'+a.count:'')+'</span>'
-      +'<span style="color:'+(net>0?'var(--green)':'var(--red)')+'">'+fmtS(net)+'/mo</span>'
-      +'</div>';
-  });
-  /* Category breakdown for dealmaker */
-  var dealBreakdown='';
-  if(G.profile==='dealmaker'&&G.dealsDone>0){
-    dealBreakdown='<div style="margin-bottom:6px;font-size:10px;color:var(--text3);letter-spacing:1px;text-transform:uppercase">Deals by category</div>';
-    Object.keys(G.dealsDoneByCategory).forEach(function(cat){
-      dealBreakdown+='<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:11px">'
-        +'<span style="color:var(--text2)">'+cat+'</span>'
-        +'<span style="color:var(--purple)">'+G.dealsDoneByCategory[cat]+' deals</span>'
-        +'</div>';
-    });
-  }
-  s.innerHTML='<div class="win">'
-    +'<div class="wt">'+win.label+' Victory — Y'+G.year+' M'+G.month+'</div>'
-    +'<div class="wc">'+win.crown+'</div>'
-    +'<div class="wh">'+win.title+'</div>'
-    +'<div class="wb">'+win.desc+'</div>'
-    +'<div class="hud hud2" style="max-width:400px;margin:0 auto 24px">'
-    +'<div class="hbox"><div class="hlbl">Final cash</div><div class="hval">'+fmt(G.cash)+'</div></div>'
-    +'<div class="hbox"><div class="hlbl">Net passive/mo</div><div class="hval g">'+fmtS(np)+'</div></div>'
-    +'<div class="hbox"><div class="hlbl">Expenses/mo</div><div class="hval r">'+fmt(exp)+'</div></div>'
-    +'<div class="hbox"><div class="hlbl">Free time</div><div class="hval" style="color:'+timeColor()+'">'+ft+'/24</div></div>'
-    +'</div>'
-    +'<div style="font-size:11px;color:var(--text3);margin-bottom:4px">'+G.monthsPlayed+' months &nbsp;·&nbsp; '+prof().name+' &nbsp;·&nbsp; '+LOC.country+'</div>'
-    +'<div style="font-size:11px;color:var(--gold);margin-bottom:20px">Discipline: '+G.disciplineScore+' &nbsp;·&nbsp; Tax rate: '+G.taxRate+'% &nbsp;·&nbsp; Reputation: '+G.reputation+'/10</div>'
-    +(G.assets.length>0
-      ?'<div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px;max-width:400px;margin:0 auto 20px;text-align:left">'
-        +'<div style="font-size:10px;color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px">'+G.assets.length+' assets built</div>'
-        +assetBreakdown
-        +'</div>'
-      :'')
-    +(dealBreakdown
-      ?'<div style="background:var(--bg2);border:1px solid rgba(154,106,204,.3);border-radius:8px;padding:14px;max-width:400px;margin:0 auto 20px;text-align:left">'
-        +dealBreakdown
-        +'<div style="font-size:11px;color:var(--purple);margin-top:6px">'+G.dealsDone+' total deals closed</div>'
-        +'</div>'
-      :'')
-    +(G.liabilities.length>0
-      ?'<div style="font-size:11px;color:var(--red);margin-bottom:16px">'+G.liabilities.length+' liabilit'+(G.liabilities.length>1?'ies':'y')+' still active at victory</div>'
-      :'<div style="font-size:11px;color:var(--green);margin-bottom:16px">Zero liabilities at victory. Clean balance sheet.</div>')
-    +'<button class="btn btn-gold" onclick="PG.reset()" style="margin-bottom:22px">Play again</button>'
-    +'<div style="font-size:9px;letter-spacing:3px;color:var(--text3);text-transform:uppercase;margin-top:14px">Billionaire by 20 — Think like a plutocrat</div>'
-    +'</div>';
-}
-
-/* ─────────────────────────────────────────
-   PUBLIC API — window.PG
-─────────────────────────────────────────── */
-window.PG={
-  closeModal:closeModal,
-
-  /* Setup flow */
-  start:function(){G.screen='setup_name';render();},
-  changeLoc:function(){G.screen='setup_loc';render();},
-  setLoc:function(code){applyLoc(code);render();},
-  fromLoc:function(){G.screen='title';render();},
-  setName:function(){var v=(gel('ninp').value||'').trim();if(!v)return;G.playerName=v;G.screen='setup_profile';render();},
-  pick:function(id){G.profile=id;render();},
-  confirmProfile:function(){
-    if(!G.profile)return;
-    var p=prof();
-    G.cash=sc(p.cash);G.timeUsed=p.timeUsed;G.salaryGrowthBonus=0;G.taxRate=p.taxRate;
-    G.screen='setup_housing';render();
+/* ─── LOCATION DATA ─── */
+var LDATA={
+  US:{currency:'$',country:'USA',city:'USA',
+    housing:[
+      {id:'shared',name:'Shared apartment',cost:600,desc:'Roommates.',perk:''},
+      {id:'studio',name:'Studio apartment',cost:1200,desc:'Own space.',perk:''},
+      {id:'one_bed',name:'1-bedroom',cost:2000,desc:'Decent area.',perk:''},
+      {id:'two_bed',name:'2-bedroom',cost:3200,desc:'Good area.',perk:'Unlocks professional network'},
+      {id:'luxury_apt',name:'Luxury apartment',cost:6000,desc:'Prime location.',perk:'Unlocks HNI opportunities'},
+      {id:'house',name:'Own house',cost:12000,desc:'Mortgage.',perk:'Unlocks elite events'}
+    ],
+    groceries:[
+      {id:'walmart',name:'Walmart',cost:300,desc:'Budget essentials.'},
+      {id:'kroger',name:'Kroger',cost:500,desc:'Mid-range.'},
+      {id:'wholefoods',name:'Whole Foods',cost:900,desc:'Premium organic.'},
+      {id:'delivery',name:'Premium delivery',cost:1500,desc:'Convenience + premium.'}
+    ]
   },
-  backToProfile:function(){G.screen='setup_profile';render();},
-  backToHousing:function(){G.screen='setup_housing';render();},
-  setHousing:function(id){G.housing=LOC.housing.find(function(h){return h.id===id;});render();},
-  toGrocery:function(){if(!G.housing)return;G.screen='setup_grocery';render();},
-  setGrocery:function(id){G.grocery=LOC.groceries.find(function(g){return g.id===id;});render();},
-
-  continueSave:function(){
-    if(loadGame()){render();}
-    else{showModal('No save found','Could not load save data. Starting a new game.',[{label:'OK',cls:'btn-ghost',fn:'PG.closeModal();PG.start();'}]);}
+  AU:{currency:'A$',country:'Australia',city:'Australia',
+    housing:[
+      {id:'shared',name:'Share house',cost:700,desc:'Housemates.',perk:''},
+      {id:'studio',name:'Studio apartment',cost:1400,desc:'Own space.',perk:''},
+      {id:'one_bed',name:'1-bedroom',cost:2200,desc:'Good suburb.',perk:''},
+      {id:'two_bed',name:'2-bedroom',cost:3500,desc:'Prime suburb.',perk:'Unlocks professional network'},
+      {id:'luxury_apt',name:'Luxury apartment',cost:7000,desc:'City centre.',perk:'Unlocks HNI opportunities'},
+      {id:'house',name:'House',cost:15000,desc:'Mortgage.',perk:'Unlocks elite events'}
+    ],
+    groceries:[
+      {id:'aldi',name:'Aldi',cost:200,desc:'Budget value.'},
+      {id:'woolworths',name:'Woolworths',cost:400,desc:'Mid-range.'},
+      {id:'harris',name:'Harris Farm',cost:900,desc:'Premium fresh.'}
+    ]
   },
-
-  startGame:function(){
-    if(!G.grocery)return;
-    G.expenses=[];G.assets=[];G.liabilities=[];G.carriedExpenses=[];
-    G.dealsDoneByCategory={};G.dealsDoneById=[];
-    G.disciplineScore=0;G.loanAmount=0;G.loanMonthlyPayment=0;
-    G.identityShiftShown=false;G.lifestyleTemptationPending=false;G.lifestyleTemptationShown=false;
-    G.blackSwanDrawnThisYear=false;G.blackSwanExpenseSpike=0;
-    G.consolidationPhase=false;G.consecutivePassiveCoverageMonths=0;G.inflationFactor=1;
-    G.hasManager=false;G.managerMonthlySalary=0;
-    G.scenariosFired=[];G.pendingScenario=null;G.survivalStep=0;G.bankruptcyLog=[];
-    G.lastScenarioMonth=0;
-    if(G.profile==='inheritor'){
-      G.assets.push({id:'family_prop_1',name:'Family property',type:'real estate',bucket:'cf',
-        income:sc(8000),expense:sc(1500),time:0,count:1,newThisMonth:false,monthsOwned:0});
-    }
-    shuffleDeck();recalc();
-    G.blackSwanMonth=6; /* First year always month 6, then randomised */
-    addLog('Game started. '+G.playerName+', '+prof().name+', '+LOC.country+'.');
-    G.screen='game';autosave();render();
+  GB:{currency:'£',country:'UK',city:'UK',
+    housing:[
+      {id:'shared',name:'Shared house',cost:500,desc:'Flatmates.',perk:''},
+      {id:'studio',name:'Studio flat',cost:900,desc:'Own space.',perk:''},
+      {id:'one_bed',name:'1-bed flat',cost:1400,desc:'Good borough.',perk:''},
+      {id:'two_bed',name:'2-bed flat',cost:2200,desc:'Prime location.',perk:'Unlocks professional network'},
+      {id:'luxury_apt',name:'Luxury flat',cost:5000,desc:'Prime London.',perk:'Unlocks HNI opportunities'},
+      {id:'house',name:'House',cost:10000,desc:'Statement.',perk:'Unlocks elite events'}
+    ],
+    groceries:[
+      {id:'lidl',name:'Lidl / Aldi',cost:150,desc:'Budget value.'},
+      {id:'tesco',name:'Tesco',cost:280,desc:'Mid-range.'},
+      {id:'waitrose',name:'Waitrose',cost:500,desc:'Premium.'},
+      {id:'harrods',name:'Harrods Food Hall',cost:1200,desc:'Ultra premium.'}
+    ]
   },
-
-  /* Board navigation */
-  goGame:function(){G.screen='game';render();},
-  toggleLog:function(){G.showFullLog=!G.showFullLog;render();},
-  dismissTutorial:function(){G.tutorialDismissed=true;render();},
-  dismissPassiveMoment:function(){autosave();render();},
-  goBorrow:function(){G.screen='borrow';render();},
-  goBuy:function(){G.screen='buy';render();},
-  goDeals:function(){
-    if(freeTime()<1){showModal('No free time','Delegate tasks first to free up time for deals.',[{label:'OK',cls:'btn-ghost',fn:'PG.closeModal();'}]);return;}
-    G.screen='deals';render();
+  SG:{currency:'S$',country:'Singapore',city:'Singapore',
+    housing:[
+      {id:'hdb_shared',name:'HDB shared room',cost:700,desc:'Shared HDB flat.',perk:''},
+      {id:'hdb_flat',name:'HDB flat',cost:2500,desc:'Own HDB unit.',perk:''},
+      {id:'condo',name:'Condominium',cost:5000,desc:'Private condo.',perk:'Unlocks professional network'},
+      {id:'luxury_condo',name:'Luxury condo',cost:10000,desc:'Prime district.',perk:'Unlocks HNI opportunities'},
+      {id:'landed',name:'Landed property',cost:25000,desc:'Statement.',perk:'Unlocks elite events'}
+    ],
+    groceries:[
+      {id:'ntuc',name:'NTUC FairPrice',cost:300,desc:'Everyday essentials.'},
+      {id:'cold_storage',name:'Cold Storage',cost:900,desc:'Premium quality.'},
+      {id:'marketplace',name:'The Market Place',cost:1800,desc:'Gourmet premium.'}
+    ]
   },
-  setDealFilter:function(f){G.dealFilter=f;render();},
-  goCollect:function(){
-    if(!G.monthIncomes)G.monthIncomes=buildMonthIncomes();
-    if(G.hasManager){
-      G.monthIncomes.forEach(function(i){
-        if(!i.done){
-          var tax=i.isSalary?salaryTax():i.isPassive?passiveTax(i.amount):0;
-          G.cash+=(i.amount-tax);
-          i.done=true;
-          i.cashTaken=true;
-        }
-      });
-    }
-    var hasPassiveReady=G.monthIncomes.some(function(i){return i.isPassive&&i.amount>0;});
-    if(hasPassiveReady&&!G.identityShiftShown){G.screen='identity_shift';render();return;}
-    G.screen='collect';render();
+  AE:{currency:'AED',country:'UAE',city:'UAE',
+    housing:[
+      {id:'shared',name:'Shared accommodation',cost:1500,desc:'Shared villa or flat.',perk:''},
+      {id:'studio',name:'Studio apartment',cost:3000,desc:'Own space.',perk:''},
+      {id:'one_bed',name:'1-bedroom',cost:5000,desc:'Decent community.',perk:''},
+      {id:'two_bed',name:'2-bedroom',cost:8000,desc:'Good area.',perk:'Unlocks professional network'},
+      {id:'luxury_apt',name:'Luxury apartment',cost:18000,desc:'Marina or Downtown.',perk:'Unlocks HNI opportunities'},
+      {id:'villa',name:'Villa',cost:40000,desc:'Statement.',perk:'Unlocks elite events'}
+    ],
+    groceries:[
+      {id:'lulu',name:'LuLu Hypermarket',cost:600,desc:'Value essentials.'},
+      {id:'carrefour',name:'Carrefour',cost:900,desc:'Mid-range.'},
+      {id:'waitrose',name:'Waitrose UAE',cost:1800,desc:'Premium.'},
+      {id:'gourmet',name:'Gourmet Gulf',cost:3500,desc:'Ultra premium.'}
+    ]
   },
-  goPayExp:function(){
-    if(!G.monthExpenses)G.monthExpenses=buildMonthExpenses();
-    if(G.hasManager){managerAutoPayExpenses();}
-    G.screen='pay_expenses';render();
-  },
-
-  /* Income / expense actions */
-  collectOne:function(idx){
-    var item=G.monthIncomes&&G.monthIncomes[idx];
-    if(!item||item.done)return;
-    var tax=item.isSalary?salaryTax():item.isPassive?passiveTax(item.amount):0;
-    G.cash+=(item.amount-tax);
-    item.done=true;
-    item.cashTaken=true;
-    render();
-  },
-  payOne:function(idx){
-    var item=G.monthExpenses&&G.monthExpenses[idx];
-    if(!item||item.done)return;
-    if(G.cash<item.amount){
-      showModal('Insufficient cash',
-        'You need '+fmt(item.amount)+' to pay <strong>'+item.label+'</strong>.<br><br>You have '+fmt(G.cash)+'. Collect income first or sell an asset.',
-        [{label:'OK',cls:'btn-ghost',fn:'PG.closeModal();'}]);
-      return;
-    }
-    G.cash-=item.amount;
-    item.done=true;
-    item.cashTaken=true;
-    if(item.isCarried){G.carriedExpenses=G.carriedExpenses.filter(function(c){return c.id!==item.originalId;});}
-    render();
-  },
-  skipOne:function(idx){
-    var item=G.monthExpenses&&G.monthExpenses[idx];
-    if(!item||item.done||item.mandatory)return;
-    item.done=true;item.skipped=true;item.skippedMonths=(item.skippedMonths||0)+1;
-    addLog('Skipped: '+item.label+' — carries to next month.');render();
-  },
-
-  /* Asset / liability actions */
-  buyAsset:function(id,cost,time,income,expense,type,name,repeatable,bucket){
-    if(G.cash<cost)return;
-    var owned=G.assets.find(function(a){return a.id===id&&!a.newThisMonth;});
-    if(!repeatable&&owned)return;
-    G.cash-=cost;
-    if(id==='hire_mgr'){
-      G.hasManager=true;G.timeUsed=Math.max(0,G.timeUsed+time);
-      G.taxRate=Math.max(5,G.taxRate-5);
-      G.managerMonthlySalary=sc(12000);
-      addLog('Manager/PA hired. Recruitment fee: '+fmt(cost)+'. Monthly salary: '+fmt(G.managerMonthlySalary)+'. Tax rate now '+G.taxRate+'%.');
-    } else if(type==='delegation'){
-      G.timeUsed=Math.max(0,G.timeUsed+time);
-      G.taxRate=Math.max(5,G.taxRate-5);
-      addLog('Delegated: '+name+'. Time freed. Tax rate now '+G.taxRate+'%.');
-      G.assets.push({id:id,name:name,type:type,bucket:bucket||'dl',income:income,expense:expense,time:time||0,count:1,newThisMonth:true,monthsOwned:0});
-    } else if(owned&&repeatable){
-      G.assets.push({id:id+'_stack_'+G.month+'_'+G.year,name:name,type:type,bucket:bucket||'cf',income:income,expense:expense,time:time||0,count:1,newThisMonth:true,monthsOwned:0,stackParent:id});
-      addLog('Stacked: '+name+'. +'+fmt(income-expense)+' net/mo from next month.');
-    } else {
-      G.assets.push({id:id,name:name,type:type,bucket:bucket||'cf',income:income,expense:expense,time:time||0,count:1,newThisMonth:true,monthsOwned:0});
-      addLog('Acquired: '+name+'. Owned now. Income starts next month.');
-    }
-    if(G.opmDiscount)G.opmDiscount=false;
-    G.delegDiscount=false;recalc();render();
-  },
-  sellAsset:function(idx){
-    var a=G.assets[idx];if(!a||a.newThisMonth)return;
-    var def=ASSET_DEFS.find(function(d){return a.id===d.id||a.id.indexOf(d.id)===0;});
-    var sellPrice=def?def.sellVal(a):sc(50000);
-    if(a.mortgage){var net=sellPrice-a.mortgage.balance;sellPrice=Math.max(0,net);}
-    showModal('Sell '+a.name,
-      'Market value: <span style="color:var(--gold);font-size:16px;font-weight:600">'+fmt(sellPrice)+'</span>'+(a.mortgage?'<br><span style="font-size:11px;color:var(--orange)">Mortgage balance deducted</span>':'')+'<br><br>Monthly income of '+fmt(a.income)+'/mo will stop.',
-      [{label:'Confirm sale',cls:'btn-red',fn:'PG.confirmSell('+idx+','+sellPrice+');PG.closeModal();'},
-       {label:'Keep asset',cls:'btn-ghost',fn:'PG.closeModal();'}]);
-  },
-  confirmSell:function(idx,price){
-    var a=G.assets[idx];if(!a)return;
-    G.cash+=price;addLog('Sold: '+a.name+'. Received '+fmt(price)+'.');
-    G.assets.splice(idx,1);recalc();render();
-  },
-  buyLiability:function(id,cost,monthly){
-    var item=LIABILITIES.find(function(x){return x.id===id;});if(!item)return;
-    if(cost>0&&G.cash<cost)return;
-    if(G.liabilities.find(function(l){return l.id===id;}))return;
-    if(cost>0)G.cash-=cost;
-    G.liabilities.push(Object.assign({},item,{cost:cost,monthly:monthly}));
-    addLog('Liability: '+item.name+'.'+(item.perk?' Unlocks: '+item.perk:''));render();
-  },
-  changeHousing:function(id){
-    G.housing=LOC.housing.find(function(h){return h.id===id;});
-    var spike=G.blackSwanExpenseSpike||0;var inf=G.inflationFactor||1;
-    var adjCost=Math.round(G.housing.cost*(1+spike)*inf);
-    if(G.monthExpenses){var he=G.monthExpenses.find(function(e){return e.id==='housing';});if(he){he.label='Rent — '+G.housing.name;he.amount=adjCost;he.done=false;}}
-    addLog('Housing changed: '+G.housing.name+'. '+fmt(adjCost)+'/mo.');render();
-  },
-  changeGrocery:function(id){
-    G.grocery=LOC.groceries.find(function(g){return g.id===id;});
-    var spike=G.blackSwanExpenseSpike||0;var inf=G.inflationFactor||1;
-    var adjCost=Math.round(G.grocery.cost*(1+spike)*inf);
-    if(G.monthExpenses){var ge=G.monthExpenses.find(function(e){return e.id==='grocery';});if(ge){ge.label='Groceries — '+G.grocery.name;ge.amount=adjCost;ge.done=false;}}
-    addLog('Groceries changed: '+G.grocery.name+'. '+fmt(adjCost)+'/mo.');render();
-  },
-
-  /* Mortgage */
-  mortgageAsset:function(idx){
-    var a=G.assets[idx];
-    if(!a||a.newThisMonth||a.mortgage)return;
-    var mv=assetMarketValue(a);var principal=Math.floor(mv*0.6);var monthly=Math.round(principal*0.10/12);
-    showModal('Mortgage '+a.name,
-      'Borrow up to 60% of market value.<br><br>'
-      +'Market value: '+fmt(mv)+'<br>'
-      +'Mortgage proceeds: <span style="color:var(--orange);font-weight:600">'+fmt(principal)+'</span><br>'
-      +'Monthly payment: <span style="color:var(--red)">'+fmt(monthly)+'/mo</span> (10% p.a. — mandatory)<br><br>'
-      +'One mortgage per asset. You can repay at any time.',
-      [{label:'Take mortgage',cls:'btn-orange',fn:'PG.confirmMortgage('+idx+');PG.closeModal();'},
-       {label:'Cancel',cls:'btn-ghost',fn:'PG.closeModal();'}]);
-  },
-  confirmMortgage:function(idx){mortgageAsset(idx);render();},
-  repayMortgage:function(idx){repayMortgage(idx);},
-
-  /* Manager */
-  fireManager:function(){
-    showModal('Fire manager',
-      'Firing the manager will:<br><br>● Stop automation immediately<br>● Remove the '+fmt(G.managerMonthlySalary)+'/mo mandatory salary expense<br>● You will need to collect and pay manually again.',
-      [{label:'Fire manager',cls:'btn-red',fn:'PG.confirmFireManager();PG.closeModal();'},
-       {label:'Keep manager',cls:'btn-ghost',fn:'PG.closeModal();'}]);
-  },
-  confirmFireManager:function(){
-    G.hasManager=false;G.timeUsed=Math.min(24,G.timeUsed+3);
-    addLog('Manager fired. Monthly salary saved: '+fmt(G.managerMonthlySalary)+'/mo.');
-    G.managerMonthlySalary=0;
-    /* Remove manager salary from current month expenses if present */
-    if(G.monthExpenses){G.monthExpenses=G.monthExpenses.filter(function(e){return e.id!=='mgr_salary';});}
-    render();
-  },
-
-  /* Drop habit */
-  dropHabit:function(idx){
-    var l=G.liabilities[idx];if(!l)return;
-    var ldef=LIABILITIES.find(function(x){return x.id===l.id;});
-    var exitVal=ldef&&ldef.exitValue?Math.round(l.cost*ldef.exitValue):0;
-    var msg='Drop <strong>'+l.name+'</strong>?<br><br>Monthly expense of '+fmt(l.monthly)+' stops immediately.'+(exitVal>0?'<br>You recover '+fmt(exitVal)+' from the sale.':'<br>Zero exit value.')+'<br><br><span style="color:var(--green);font-size:12px">+2 discipline score</span>';
-    showModal('Drop habit',msg,
-      [{label:'Drop it',cls:'btn-green',fn:'PG.confirmDropHabit('+idx+');PG.closeModal();'},
-       {label:'Keep',cls:'btn-ghost',fn:'PG.closeModal();'}]);
-  },
-  confirmDropHabit:function(idx){
-    var l=G.liabilities[idx];if(!l)return;
-    var ldef=LIABILITIES.find(function(x){return x.id===l.id;});
-    var exitVal=ldef&&ldef.exitValue?Math.round(l.cost*ldef.exitValue):0;
-    if(exitVal>0)G.cash+=exitVal;
-    G.disciplineScore+=2;
-    addLog('Dropped habit: '+l.name+'. +2 discipline. '+( exitVal>0?'Recovered '+fmt(exitVal)+'.':'Zero exit value.')+'  "You cut the expense. But the urge will return."');
-    G.liabilities.splice(idx,1);
-    /* Remove from current month expenses if present */
-    if(G.monthExpenses){G.monthExpenses=G.monthExpenses.filter(function(e){return e.id!=='liab_'+l.id;});}
-    render();
-  },
-
-  /* Deals */
-
-  executeDeal:function(id){
-    var deal=DEALS.find(function(d){return d.id===id;});if(!deal)return;
-    if(G.reputation<deal.repReq||freeTime()<deal.time||!dealPrereqMet(deal))return;
-    var success=Math.random()<deal.rate;
-    if(success){
-      G.timeUsed=Math.min(24,G.timeUsed+deal.time);
-      var earn=sc(deal.min)+Math.floor(Math.random()*sc(deal.max-deal.min));
-      G.cash+=earn;G.reputation=Math.min(10,G.reputation+1);G.dealsDone++;
-      if(!G.dealsDoneByCategory[deal.cat])G.dealsDoneByCategory[deal.cat]=0;
-      G.dealsDoneByCategory[deal.cat]++;
-      G.dealsDoneById.push(deal.id);
-      addLog('Deal: '+deal.name+'. +'+fmt(earn)+'. Rep: '+G.reputation+'/10.');
-      showModal('Deal closed',deal.name+'<br><br><span style="color:var(--green);font-size:20px;font-weight:600">+'+fmt(earn)+'</span><br><span style="font-size:11px;color:var(--text3)">Reputation: '+G.reputation+'/10 &nbsp;·&nbsp; Deals: '+G.dealsDone+'</span>',
-        [{label:'Continue',cls:'btn-gold',fn:'PG.closeModal();PG.goGame();'}]);
-    } else {
-      G.timeUsed=Math.min(24,G.timeUsed+deal.time);
-      G.reputation=Math.max(0,G.reputation-1);
-      addLog('Deal failed: '+deal.name+'. Rep: '+G.reputation+'/10.');
-      showModal('Deal failed',deal.name+'<br><br><span style="color:var(--red);font-size:13px">Reputation dropped to '+G.reputation+'/10</span><br><span style="font-size:11px;color:var(--text3)">No money lost. Only reputation.</span>',
-        [{label:'Accept',cls:'btn-ghost',fn:'PG.closeModal();PG.goGame();'}]);
-    }
-  },
-
-  
-  /* Month flow */
-  passBlocked:function(){
-    var mi=!allIncomeDone();var me=!allMandatoryExpDone();
-    var msg='Before passing this month:<br><br>';
-    if(mi)msg+='<span style="color:var(--red)">● Income not fully collected</span><br>';
-    if(me)msg+='<span style="color:var(--red)">● Mandatory expenses not paid</span><br>';
-    var btns=[];
-    if(mi)btns.push({label:'Collect income',cls:'btn-green',fn:'PG.closeModal();PG.goCollect();'});
-    if(me)btns.push({label:'Pay expenses',cls:'btn-red',fn:'PG.closeModal();PG.goPayExp();'});
-    btns.push({label:'Cancel',cls:'btn-ghost',fn:'PG.closeModal();'});
-    showModal('Month not complete',msg,btns);
-  },
-  passMonth:function(){
-    if(!canPass()){PG.passBlocked();return;}
-    /* Check for legend event (rare, high-impact narrative moment) */
-    var legCheck=checkLegend();
-    if(legCheck){
-      G.pendingLegend=legCheck;
-      G.legendFired.push(legCheck.id);
-      G.lastLegendMonth=G.monthsPlayed;
-      if(legCheck.effect)legCheck.effect(G);
-      G.screen='legend';render();return;
-    }
-    /* Check for scenario trigger */
-    var sc_check=checkScenario();
-    if(sc_check){
-      G.pendingScenario=sc_check;
-      G.screen='scenario';render();return;
-    }
-    /* Draw event card — black swan fires on randomised month (default month 6 year 1, then random) */
-    var bsMonth=G.blackSwanMonth||6;
-    if(G.month===bsMonth&&!G.blackSwanDrawnThisYear){
-      G.blackSwanDrawnThisYear=true;
-      G.eventCard=drawBlackSwan();
-    } else {
-      G.eventCard=drawCard();
-    }
-    /* Check for smart response */
-    var hasSmartResp=G.eventCard&&EVENT_RESPONSES[G.eventCard.title];
-    G.screen=hasSmartResp?'smart_response':'event';
-    render();
-  },
-  acceptEvent:function(){
-    if(G.eventCard&&G.eventCard.fn)G.eventCard.fn(G);
-    G.delegDiscount=false;G.opmDiscount=false;
-    G._lastSettleResult=settleMonth();
-    autosave();
-    /* FIX: check for cash shortage after settle — route to survival if needed */
-    if(checkCashShortage()){G.screen='survival';render();return;}
-    G.screen='endmonth';
-    render();
-  },
-  acceptSmartResponse:function(){
-    var e=G.eventCard;
-    var resp=EVENT_RESPONSES&&EVENT_RESPONSES[e.title];
-    if(resp){
-      var tier=resp.check(G);
-      resp[tier].damage(G);
-    }
-    G.delegDiscount=false;G.opmDiscount=false;
-    G._lastSettleResult=settleMonth();
-    autosave();
-    /* FIX: check for cash shortage after settle — route to survival if needed */
-    if(checkCashShortage()){G.screen='survival';render();return;}
-    G.screen='endmonth';
-    render();
-  },
-
-  acknowledgeLegend:function(){
-    G.pendingLegend=null;
-    /* After legend, check for scenario then draw event normally */
-    var sc_check=checkScenario();
-    if(sc_check){G.pendingScenario=sc_check;G.screen='scenario';render();return;}
-    var bsMonth=G.blackSwanMonth||6;
-    if(G.month===bsMonth&&!G.blackSwanDrawnThisYear){
-      G.blackSwanDrawnThisYear=true;G.eventCard=drawBlackSwan();
-    } else {G.eventCard=drawCard();}
-    var hasSmartResp=G.eventCard&&EVENT_RESPONSES[G.eventCard.title];
-    G.screen=hasSmartResp?'smart_response':'event';render();
-  },
-
-  /* Scenario actions */
-  chooseScenario:function(scenId,choiceId){
-    var sc_obj=DEAL_SCENARIOS.find(function(x){return x.id===scenId;});
-    if(!sc_obj)return;
-    G.scenariosFired.push(scenId);
-    G.lastScenarioMonth=G.monthsPlayed;
-    var out=sc_obj.outcomes[choiceId];
-    if(out.effect)out.effect(G);
-    G.pendingOutcome=out;
-    G.screen='scenario_outcome';render();
-  },
-  finishScenario:function(){
-    G.pendingScenario=null;G.pendingOutcome=null;
-    /* Now draw regular event */
-    var bsMonth=G.blackSwanMonth||6;
-    if(G.month===bsMonth&&!G.blackSwanDrawnThisYear){
-      G.blackSwanDrawnThisYear=true;
-      G.eventCard=drawBlackSwan();
-    } else {
-      G.eventCard=drawCard();
-    }
-    var hasSmartResp=G.eventCard&&EVENT_RESPONSES[G.eventCard.title];
-    G.screen=hasSmartResp?'smart_response':'event';
-    render();
-  },
-
-  /* Survival */
-  forceSellSurvival:function(price){
-    var a=G.survivalAsset;
-    var idx=G.assets.indexOf(a);
-    if(idx>-1){G.assets.splice(idx,1);}
-    G.cash+=price;
-    addLog('FORCED SALE: '+a.name+' sold for '+fmt(price)+'. "You are asset-rich and cash-poor."');
-    G.survivalStep=0;recalc();G.screen='game';render();
-  },
-  emergencyMortgage:function(){
-    var a=G.survivalMortgageAsset;
-    var idx=G.assets.indexOf(a);
-    if(idx>-1){
-      var mv=assetMarketValue(a);
-      var principal=Math.floor(mv*0.6);
-      var monthly=Math.round(principal*0.18/12); /* 18% emergency rate */
-      a.mortgage={principal:principal,monthlyPayment:monthly,balance:principal,emergency:true};
-      G.cash+=principal;
-      addLog('EMERGENCY MORTGAGE: '+a.name+'. Received '+fmt(principal)+'. Rate: 18% p.a. "You borrowed against your own asset to survive the month."');
-    }
-    G.survivalStep=0;recalc();G.screen='game';render();
-  },
-  declareBankruptcy:function(){
-    G.bankruptcyLog=G.log.slice();
-    G.screen='bankruptcy';render();
-  },
-
-  /* Loan */
-  takeLoan:function(amount,monthly){
-    if(G.loanAmount>0){showModal('Loan active','Repay your current loan before taking a new one.',[{label:'OK',cls:'btn-ghost',fn:'PG.closeModal();'}]);return;}
-    G.cash+=amount;G.loanAmount=amount;G.loanMonthlyPayment=monthly;
-    addLog('Borrowed: '+fmt(amount)+'. Monthly interest: '+fmt(monthly)+'. Deploy into assets immediately.');
-    G.screen='game';render();
-  },
-  repayLoan:function(){
-    if(G.cash<G.loanAmount){showModal('Insufficient cash','You need '+fmt(G.loanAmount)+' to repay the loan. You have '+fmt(G.cash)+'.',[{label:'OK',cls:'btn-ghost',fn:'PG.closeModal();'}]);return;}
-    G.cash-=G.loanAmount;
-    addLog('Loan repaid: '+fmt(G.loanAmount)+'. No more interest payments.');
-    G.loanAmount=0;G.loanMonthlyPayment=0;
-    G.screen='game';render();
-  },
-
-  /* Temptation */
-  resistTemptation:function(){
-    G.lifestyleTemptationPending=false;G.lifestyleTemptationShown=true;
-    G.disciplineScore++;
-    addLog('Resisted lifestyle temptation. Discipline: '+G.disciplineScore);
-    showModal('Discipline',
-      'You chose not to upgrade.<br><br><span style="color:var(--green);font-size:18px;font-weight:600">+1 Discipline</span><br><br><span style="font-size:12px;color:var(--text3)">The wealthy are not wealthy because they earn more. They are wealthy because they resist more.</span>',
-      [{label:'Continue',cls:'btn-gold',fn:'PG.closeModal();PG.goGame();'}]);
-  },
-  indulgeTemptation:function(){
-    G.lifestyleTemptationPending=false;G.lifestyleTemptationShown=true;
-    var available=TEMPTATION_LIABILITIES.filter(function(t){return !G.liabilities.find(function(l){return l.id===t.id;});});
-    if(available.length){
-      var chosen=available[Math.floor(Math.random()*available.length)];
-      var sc_mo=sc(chosen.monthly);
-      G.liabilities.push({id:chosen.id,name:chosen.name,cost:0,monthly:sc_mo,type:'lifestyle',desc:'Lifestyle indulgence.',perk:'',exitValue:0});
-      addLog('Lifestyle indulgence: '+chosen.name+'. +'+fmt(sc_mo)+'/mo permanent expense.');
-      showModal('Indulgence',
-        'You upgraded.<br><br><span style="color:var(--red);font-size:14px">'+chosen.name+' added — '+fmt(sc_mo)+'/mo forever</span><br><br><span style="font-size:12px;color:var(--text3)">Lifestyle inflation is permanent. Your expenses just rose. Your income did not.</span>',
-        [{label:'Accept',cls:'btn-ghost',fn:'PG.closeModal();PG.goGame();'}]);
-    } else {
-      G.disciplineScore++;
-      showModal('Nothing left to buy','You have already indulged in everything available. Congratulations on your expensive taste.<br><br><span style="color:var(--green)">+1 Discipline by default</span>',
-        [{label:'Continue',cls:'btn-gold',fn:'PG.closeModal();PG.goGame();'}]);
-    }
-  },
-
-  /* Win flow */
-  acknowledgeIdentityShift:function(){G.identityShiftShown=true;G.screen='collect';render();},
-  triggerWin:function(){G.screen='consolidation';render();},
-  enterConsolidation:function(){
-    G.consolidationPhase=true;G.consecutivePassiveCoverageMonths=0;
-    addLog('Consolidation phase entered. New challenge: sustain 3x passive coverage for 3 months.');
-    G.screen='game';render();
-  },
-  claimWin:function(){G.screen='win';render();},
-
-  /* Next month */
-  nextMonth:function(){
-    if(G.month>=12){
-      G.month=1;G.year++;G.blackSwanDrawnThisYear=false;
-      /* Randomise black swan month for next year (anywhere from month 3 to 10) */
-      G.blackSwanMonth=3+Math.floor(Math.random()*8);
-    }
-    else{G.month++;}
-
-    /* FIX: reset lifestyle temptation per year so it can fire again if ratio stays high */
-    if(G.month===1)G.lifestyleTemptationShown=false;
-
-    /* Mortgage foreclosure check */
-    G.assets.forEach(function(a){
-      if(!a.newThisMonth&&a.mortgage){
-        if(G.cash<a.mortgage.monthlyPayment){
-          /* Foreclosure — force sell at 80% */
-          var def=ASSET_DEFS.find(function(d){return d.id===a.id||a.id.indexOf(d.id)===0;});
-          var fv=def?Math.floor(def.sellVal(a)*0.8):sc(50000);
-          var remaining=Math.max(0,fv-a.mortgage.balance);
-          G.cash+=remaining;
-          addLog('FORECLOSURE: '+a.name+' sold at 80% value. Mortgage cleared. Net: '+fmt(remaining)+'.');
-          a._foreclosed=true;
-        }
-      }
-    });
-    G.assets=G.assets.filter(function(a){return !a._foreclosed;});
-
-    /* Age assets, merge stacks */
-    var toMerge=[];var toKeep=[];
-    G.assets.forEach(function(a){
-      if(a.newThisMonth){
-        a.newThisMonth=false;
-        if(a.stackParent)toMerge.push(a);
-        else toKeep.push(a);
-      } else {
-        a.monthsOwned=(a.monthsOwned||0)+1;
-        a.vacantThisMonth=false;
-        if(a.regulatorySuspended>0){a.regulatorySuspended--;if(a.regulatorySuspended===0)addLog(a.name+' regulatory suspension lifted.');}
-        toKeep.push(a);
-      }
-    });
-    toMerge.forEach(function(m){
-      var parent=toKeep.find(function(a){return a.id===m.stackParent;});
-      if(parent){parent.income+=m.income;parent.expense+=m.expense;parent.count=(parent.count||1)+1;}
-      else{m.id=m.stackParent;delete m.stackParent;toKeep.push(m);}
-    });
-    G.assets=toKeep;
-
-    G.monthIncomes=null;G.monthExpenses=null;G.eventCard=null;
-    G.lifestyleTemptationPending=false;
-    /* NOTE: lifestyleTemptationShown is intentionally NOT reset here — it resets at year rollover only (line above) */
-    recalc();G.screen='game';autosave();render();
-  },
-
-  /* Reset */
-  reset:function(){
-    clearSave();
-    Object.assign(G,{
-      screen:'title',playerName:'',profile:null,month:1,year:1,cash:0,
-      expenses:[],assets:[],liabilities:[],log:[],eventDeck:[],usedEvents:[],eventCard:null,
-      hasManager:false,housing:null,grocery:null,monthIncomes:null,monthExpenses:null,
-      delegDiscount:false,opmDiscount:false,passiveIncome:0,passiveExpense:0,
-      salaryGrowthBonus:0,monthsPlayed:0,timeUsed:0,reputation:3,dealsDone:0,
-      dealsDoneByCategory:{},dealsDoneById:[],carriedExpenses:[],
-      disciplineScore:0,taxRate:30,loanAmount:0,loanMonthlyPayment:0,
-      identityShiftShown:false,lifestyleTemptationPending:false,lifestyleTemptationShown:false,
-      blackSwanDrawnThisYear:false,blackSwanExpenseSpike:0,blackSwanMonth:6,
-      consolidationPhase:false,consecutivePassiveCoverageMonths:0,inflationFactor:1,
-      managerMonthlySalary:0,
-      scenariosFired:[],pendingScenario:null,survivalStep:0,bankruptcyLog:[],lastScenarioMonth:0,
-      tutorialDismissed:false,showFullLog:false,dealFilter:'all',   /* FIX: reset UI state too */
-      _lastSettleResult:null,passiveFirstFireSeen:false,
-      legendFired:[],lastLegendMonth:0,pendingLegend:null
-    });
-    render();
+  IN:{currency:'₹',country:'India',city:'India',
+    housing:[
+      {id:'chawl',name:'Chawl / shared room',cost:4000,desc:'Bare minimum.',perk:''},
+      {id:'budget_flat',name:'Budget 1BHK',cost:8000,desc:'Small flat in outskirts.',perk:''},
+      {id:'mid_flat',name:'Mid-range 2BHK',cost:15000,desc:'Decent locality.',perk:''},
+      {id:'premium_flat',name:'Premium apartment',cost:28000,desc:'Gated society.',perk:'Unlocks upper-middle client events'},
+      {id:'luxury_apt',name:'Luxury high-rise',cost:55000,desc:'Prime location.',perk:'Unlocks HNI opportunities'},
+      {id:'villa',name:'Villa / bungalow',cost:100000,desc:'Statement property.',perk:'Unlocks elite network events'}
+    ],
+    groceries:[
+      {id:'kirana',name:'Local kirana',cost:2000,desc:'Basic necessities only.'},
+      {id:'dmart',name:'D-Mart',cost:4000,desc:'Value for money.'},
+      {id:'reliance',name:'Reliance Fresh',cost:7000,desc:'Better quality.'},
+      {id:'premium',name:"Nature's Basket",cost:14000,desc:'Organic, premium imports.'}
+    ]
   }
 };
 
-/* ─── INIT ─── */
-function init(){
-  detectLocation(function(success){
-    G.screen=success?'title':'setup_loc';
-    render();
-  });
-}
-if(document.readyState==='loading'){
-  document.addEventListener('DOMContentLoaded',init);
-} else {
-  setTimeout(init,0);
-}
+var MANUAL_LOCS=[
+  {code:'US',label:'USA',cur:'$'},
+  {code:'AU',label:'Australia',cur:'A$'},
+  {code:'GB',label:'UK',cur:'£'},
+  {code:'SG',label:'Singapore',cur:'S$'},
+  {code:'AE',label:'UAE',cur:'AED'},
+  {code:'IN',label:'India',cur:'₹'}
+];
 
-})();
+/* ─── PROFILES ─── */
+var PROFILES=[
+  {id:'employee',name:'Employee',tag:'Safe but stuck',badge:'bwarn',badgeText:'Trapped',
+   cash:150000,timeUsed:18,salaryBase:45000,taxRate:30,
+   desc:'Stable salary. Zero assets. Your financial life depends on one employer.',
+   unique:'Each month you skip buying assets, salary grows. The golden handcuff tightens.'},
+  {id:'selfemployed',name:'Self-employed',tag:'Golden cage',badge:'bwarn',badgeText:'Hard mode',
+   cash:240000,timeUsed:20,salaryBase:80000,taxRate:25,
+   desc:'High income. No time. No assets. You are the business. You stop — it stops.',
+   unique:'If time used drops below 16, earn bonus income each month. Delegation pays.'},
+  {id:'inheritor',name:'Inheritor',tag:'Head start, no skills',badge:'bgold',badgeText:'Easy start',
+   cash:100000,timeUsed:10,salaryBase:30000,taxRate:20,
+   desc:'One passive stream inherited. Time available. Zero business instinct.',
+   unique:'Starts with a family property generating passive income.'},
+  {id:'dealmaker',name:'Dealmaker',tag:'Highest ceiling',badge:'bblue',badgeText:'Expert',
+   cash:0,timeUsed:8,salaryBase:0,taxRate:15,
+   desc:'Zero cash. Maximum leverage. You make money connecting value — not owning it.',
+   unique:'45+ real-world deal types. Reputation is your balance sheet.'}
+];
+
+/* ─── SALARY TRAP QUOTES ─── */
+var SALARY_TRAP_QUOTES=[
+  'Your employer owns 8 hours of your day. Every single day. Forever — until you decide otherwise.',
+  'A salary is the price your employer pays to own your most productive hours.',
+  'You traded time for money. The problem: you cannot get the time back.',
+  'Your income stopped the moment you stopped. That is not wealth. That is a wage.',
+  'The salary feels safe. That feeling is the trap.',
+  'You are one decision — your employer\'s decision — from zero income.',
+  'Every month you collect a salary without buying assets, the handcuff tightens.',
+  'Comfort is the enemy of freedom. The salary provides comfort. Nothing more.',
+  'Your employer is getting rich from your time. Are you?',
+  'The golden handcuff: paid well enough to stay, not enough to leave.',
+  'Security is an illusion. The only real security is income that does not require your presence.',
+  'You work hard. Your assets should work harder.'
+];
+
+/* ─── ASSET DEFINITIONS ─── */
+var ASSET_DEFS=[
+  {id:'index_fund',name:'Index fund',bucket:'cf',cost:50000,income:3000,expense:200,time:0,type:'investment',repeatable:true,
+   sellVal:function(a){return Math.round(sc(50000)*(1+(a.monthsOwned||0)*0.005));},
+   desc:'Pure passive. Stack for compounding. Money works 24/7 without you.'},
+  {id:'rental',name:'Rental property',bucket:'cf',cost:200000,income:15000,expense:3500,time:1,type:'real estate',repeatable:true,
+   sellVal:function(a){return Math.round(sc(200000)*(1+(a.monthsOwned||0)*0.008));},
+   desc:'Rental income minus maintenance, tax and insurance. Tenant pays your mortgage.'},
+  {id:'franchise',name:'Franchise unit',bucket:'eq',cost:300000,income:25000,expense:6000,time:0,type:'business',repeatable:true,
+   sellVal:function(a){return Math.round(sc(300000)*(1+(a.monthsOwned||0)*0.004));},
+   desc:'System built. You own a proven machine. Royalty and ops costs deducted monthly.'},
+  {id:'stocks',name:'Stock portfolio',bucket:'ap',cost:80000,income:5500,expense:300,time:0,type:'investment',repeatable:true,
+   sellVal:function(a){return Math.round(sc(80000)*(1+(a.monthsOwned||0)*0.006));},
+   desc:'Dividends plus capital appreciation. Ownership in real businesses.'},
+  {id:'license_ip',name:'License your IP',bucket:'cf',cost:40000,income:8000,expense:500,time:0,type:'passive',repeatable:false,
+   sellVal:function(){return sc(40000);},
+   desc:'Create once. License forever. Royalties minus platform and legal fees.'},
+  {id:'p2p',name:'P2P lending',bucket:'cf',cost:30000,income:2500,expense:100,time:0,type:'investment',repeatable:true,
+   sellVal:function(){return sc(30000);},
+   desc:'Your money lends to borrowers. Interest income minus platform fee.'},
+  {id:'etf',name:'Dividend ETF',bucket:'ap',cost:60000,income:4000,expense:150,time:0,type:'investment',repeatable:true,
+   sellVal:function(a){return Math.round(sc(60000)*(1+(a.monthsOwned||0)*0.005));},
+   desc:'Diversified ownership. Quarterly dividends. Low expense ratio.'},
+  {id:'content',name:'Content channel',bucket:'eq',cost:20000,income:5000,expense:1200,time:2,type:'business',repeatable:false,
+   sellVal:function(){return sc(20000);},
+   desc:'Build once. Audience generates revenue. Ad income minus hosting and tools.'},
+  {id:'hire_mgr',name:'Hire manager / PA',bucket:'dl',cost:0,income:0,expense:0,time:-3,type:'delegation',repeatable:false,
+   sellVal:function(){return 0;},
+   desc:'Automates all income and expense handling. Frees 3 time units. Reduces tax rate by 5%. Costs recruitment fee + monthly salary.'},
+  {id:'build_sop',name:'Build systems (SOP)',bucket:'dl',cost:30000,income:0,expense:2000,time:-2,type:'delegation',repeatable:false,
+   sellVal:function(){return 0;},
+   desc:'Document everything. 2 time units freed permanently. Reduces tax rate by 5%. Small monthly maintenance cost.'}
+];
+
+/* ─── BUCKET INFO ─── */
+var BUCKET_INFO={
+  cf:{label:'Cashflow',cls:'bucket-cf',tagCls:'tag-cf',desc:'Pays you every month regardless of market conditions. The plutocrat\'s foundation.'},
+  ap:{label:'Appreciation',cls:'bucket-ap',tagCls:'tag-ap',desc:'Grows in value over time. Sell higher than you bought. Wealth compounds silently.'},
+  eq:{label:'Equity',cls:'bucket-eq',tagCls:'tag-eq',desc:'You own a system, not a job. The business runs without your daily presence.'},
+  dl:{label:'Delegation',cls:'bucket-dl',tagCls:'tag-del',desc:'Buy back your time. The wealthy don\'t do — they direct.'}
+};
+
+/* ─── LIABILITIES ─── */
+var LIABILITIES=[
+  {id:'budget_car',name:'Budget car',cost:200000,monthly:8000,type:'lifestyle',desc:'Basic transport.',perk:'',exitValue:0.30},
+  {id:'luxury_car',name:'Luxury car',cost:800000,monthly:25000,type:'status',desc:'Signals status.',perk:'Unlocks HNI client opportunities',exitValue:0.30},
+  {id:'wardrobe',name:'Premium wardrobe',cost:50000,monthly:5000,type:'status',desc:'Dress for the clients you want.',perk:'Unlocks luxury deal opportunities',exitValue:0},
+  {id:'club_member',name:'Club membership',cost:100000,monthly:8000,type:'status',desc:'Exclusive circles.',perk:'Unlocks elite network events',exitValue:0},
+  {id:'gadgets',name:'Latest gadgets',cost:80000,monthly:3000,type:'lifestyle',desc:'Depreciates fast.',perk:'',exitValue:0},
+  {id:'fine_dining',name:'Fine dining habit',cost:0,monthly:15000,type:'status',desc:'Build relationships over meals.',perk:'Unlocks high-value partnerships',exitValue:0}
+];
+
+var TEMPTATION_LIABILITIES=[
+  {id:'budget_car',name:'Budget car',monthly:8000},
+  {id:'gadgets',name:'Latest gadgets',monthly:3000},
+  {id:'fine_dining',name:'Fine dining habit',monthly:15000},
+  {id:'wardrobe',name:'Premium wardrobe',monthly:5000}
+];
+
+/* ─── WIN CONDITIONS ─── */
+var WINS=[
+  {tier:1,crown:'◈',label:'Tier I',title:'Rat race escaped',desc:'Net passive income covers all expenses. You no longer need to work. Work is now a choice — not a sentence.'},
+  {tier:2,crown:'◉',label:'Tier II',title:'Legacy portfolio built',desc:'Total wealth crossed a major milestone. Generational wealth begins here.'},
+  {tier:3,crown:'✦',label:'Tier III',title:'Leisure class achieved',desc:'Zero time required. Income still flows. Complete freedom from both time anxiety and money anxiety.'},
+  {tier:4,crown:'★',label:'Tier IV',title:'Plutocrat legacy',desc:'Passive income sustained 3x expenses for 3 consecutive months. You have crossed into the leisure class permanently.'}
+];
+
+/* ─── DEALS (45 across 14 categories) ─── */
+var DEALS=[
+  {id:'d1',cat:'Telecom',name:'Airvoice tower lease',desc:'Airvoice needs tower sites. You know landowners. Broker the lease.',repReq:0,time:1,min:20000,max:50000,rate:0.80,prereq:[]},
+  {id:'d2',cat:'Telecom',name:'Conecta distributor deal',desc:'Conecta Mobile expanding. Onboard distributors. Take margin.',repReq:1,time:2,min:35000,max:70000,rate:0.75,prereq:[]},
+  {id:'d3',cat:'Telecom',name:'Signalplus retail franchise',desc:'Source franchisees for Signalplus. Take 20% fee.',repReq:3,time:2,min:60000,max:120000,rate:0.70,prereq:['d1','d2']},
+  {id:'d4',cat:'Real Estate',name:'Property flip (OPM)',desc:'Find undervalued property. Bring investor capital. Take carry.',repReq:0,time:2,min:30000,max:80000,rate:0.75,prereq:[]},
+  {id:'d5',cat:'Real Estate',name:'Commercial lease brokering',desc:'Find tenants for empty spaces. Take 2 months brokerage.',repReq:1,time:1,min:25000,max:60000,rate:0.80,prereq:[]},
+  {id:'d6',cat:'Real Estate',name:'Land banking syndicate',desc:'Pool investors to buy land near expansion zones.',repReq:4,time:3,min:80000,max:200000,rate:0.65,prereq:['d4','d5']},
+  {id:'d7',cat:'Real Estate',name:'REIT structuring',desc:'Structure a real estate investment trust. Requires 3 real estate deals done.',repReq:6,time:4,min:150000,max:350000,rate:0.60,prereq:['d4','d5','d6']},
+  {id:'d8',cat:'Food and Beverage',name:'Burger Palace franchise deal',desc:'Find franchisee operators in new cities. Take 25% of fee.',repReq:2,time:2,min:50000,max:100000,rate:0.75,prereq:[]},
+  {id:'d9',cat:'Food and Beverage',name:'Coffee Crown licensing',desc:'Source licensed kiosk operators. Take broker fee.',repReq:2,time:2,min:40000,max:90000,rate:0.78,prereq:[]},
+  {id:'d10',cat:'Food and Beverage',name:'SpiceRoute cloud kitchen JV',desc:'Structure JV for cloud kitchen partners in metros.',repReq:3,time:3,min:60000,max:140000,rate:0.70,prereq:['d8','d9']},
+  {id:'d11',cat:'Food and Beverage',name:'FarmFresh distribution deal',desc:'Onboard distributors for FarmFresh organic brand.',repReq:1,time:1,min:20000,max:55000,rate:0.80,prereq:[]},
+  {id:'d12',cat:'Technology',name:'SaaSBridge licensing deal',desc:'Close 3 enterprise deals. Take 15% of contract value.',repReq:2,time:2,min:45000,max:110000,rate:0.72,prereq:[]},
+  {id:'d13',cat:'Technology',name:'AppNest acqui-hire',desc:'Find a startup for AppNest to acquire for talent.',repReq:4,time:3,min:100000,max:250000,rate:0.62,prereq:['d12','d14']},
+  {id:'d14',cat:'Technology',name:'CloudStack reseller deal',desc:'Onboard resellers in new markets.',repReq:2,time:2,min:30000,max:80000,rate:0.75,prereq:[]},
+  {id:'d15',cat:'Technology',name:'DataVault angel round',desc:'Syndicate seed round. Requires 2 tech deals done. Take 2% fee plus 15% carry.',repReq:5,time:3,min:120000,max:300000,rate:0.60,prereq:['d12','d14']},
+  {id:'d16',cat:'Manufacturing',name:'SupplyLink OEM deal',desc:'Match SupplyLink with factories. Take broker margin.',repReq:1,time:2,min:30000,max:70000,rate:0.75,prereq:[]},
+  {id:'d17',cat:'Manufacturing',name:'ExportBridge trade deal',desc:'Connect to international buyers. Take 10% commission.',repReq:3,time:2,min:50000,max:120000,rate:0.68,prereq:['d16']},
+  {id:'d18',cat:'Manufacturing',name:'PackRight supply contract',desc:'Structure packaging supply contract. Take finder fee.',repReq:1,time:1,min:20000,max:50000,rate:0.82,prereq:[]},
+  {id:'d19',cat:'Media',name:'ViralVault content syndication',desc:'License content to platforms. Take 20% of licensing fee.',repReq:2,time:2,min:35000,max:80000,rate:0.72,prereq:[]},
+  {id:'d20',cat:'Media',name:'StreamNow distribution deal',desc:'Close OTT distribution deal for indie film.',repReq:3,time:2,min:60000,max:150000,rate:0.65,prereq:['d19']},
+  {id:'d21',cat:'Media',name:'PrintPulse IP licensing',desc:'Structure brand licensing deal for magazine events.',repReq:2,time:1,min:25000,max:65000,rate:0.75,prereq:[]},
+  {id:'d22',cat:'Education',name:'LearnSpark franchise',desc:'Source franchisee operators for coaching centres.',repReq:2,time:2,min:40000,max:90000,rate:0.76,prereq:[]},
+  {id:'d23',cat:'Education',name:'CurriculumX licensing',desc:'License teaching system to schools.',repReq:3,time:2,min:50000,max:100000,rate:0.70,prereq:['d22']},
+  {id:'d24',cat:'Education',name:'SkillBridge corporate deal',desc:'Close corporate training contracts.',repReq:2,time:2,min:45000,max:110000,rate:0.72,prereq:[]},
+  {id:'d25',cat:'Retail',name:'WhiteLabel wholesale deal',desc:'Connect manufacturer to retail brand. Take margin.',repReq:1,time:1,min:20000,max:55000,rate:0.80,prereq:[]},
+  {id:'d26',cat:'Retail',name:'ShelfSpace distribution',desc:'Get new FMCG brand into supermarket chains.',repReq:2,time:2,min:35000,max:80000,rate:0.73,prereq:['d25']},
+  {id:'d27',cat:'Retail',name:'MallPrime retail licensing',desc:'License pop-up spaces. Take 15% of operator revenue.',repReq:3,time:2,min:55000,max:130000,rate:0.68,prereq:['d25','d26']},
+  {id:'d28',cat:'Finance',name:'LoanLink syndication',desc:'Syndicate large MSME loan. Take arrangement fee.',repReq:4,time:3,min:80000,max:200000,rate:0.65,prereq:['d29','d30']},
+  {id:'d29',cat:'Finance',name:'InsureMax distribution deal',desc:'Onboard insurance agents. Take override commission.',repReq:2,time:1,min:25000,max:60000,rate:0.78,prereq:[]},
+  {id:'d30',cat:'Finance',name:'WealthBridge MF distribution',desc:'Onboard mutual fund distributors.',repReq:2,time:2,min:30000,max:70000,rate:0.75,prereq:[]},
+  {id:'d31',cat:'Healthcare',name:'MediChain clinic franchise',desc:'Source operators for diagnostic franchise.',repReq:3,time:2,min:60000,max:130000,rate:0.70,prereq:['d32']},
+  {id:'d32',cat:'Healthcare',name:'PharmaLink distribution',desc:'Onboard distributors in new regions.',repReq:2,time:2,min:35000,max:80000,rate:0.73,prereq:[]},
+  {id:'d33',cat:'Healthcare',name:'MediEquip leasing deal',desc:'Structure equipment leasing deals with hospitals.',repReq:3,time:2,min:50000,max:120000,rate:0.68,prereq:['d32']},
+  {id:'d34',cat:'Hospitality',name:'StayEasy hotel management',desc:'Source hotel owners for management contracts.',repReq:3,time:2,min:55000,max:130000,rate:0.70,prereq:['d35']},
+  {id:'d35',cat:'Hospitality',name:'TasteCraft restaurant franchise',desc:'Source franchisee operators in new cities.',repReq:2,time:2,min:45000,max:100000,rate:0.74,prereq:[]},
+  {id:'d36',cat:'Logistics',name:'LastMile delivery contract',desc:'Close e-commerce contracts for logistics firm.',repReq:2,time:2,min:35000,max:85000,rate:0.75,prereq:[]},
+  {id:'d37',cat:'Logistics',name:'ColdStore warehouse leasing',desc:'Find FMCG brands to lease cold storage.',repReq:1,time:1,min:20000,max:55000,rate:0.80,prereq:[]},
+  {id:'d38',cat:'Energy',name:'SolarGrid installation contract',desc:'Close rooftop solar contracts with factories.',repReq:2,time:2,min:40000,max:100000,rate:0.73,prereq:[]},
+  {id:'d39',cat:'Energy',name:'FuelNet distribution deal',desc:'Onboard transport companies for fuel additive.',repReq:1,time:1,min:20000,max:50000,rate:0.78,prereq:[]},
+  {id:'d40',cat:'Agriculture',name:'GrainBridge commodity trade',desc:'Connect to food processors. Take 3% of trade.',repReq:1,time:1,min:25000,max:60000,rate:0.78,prereq:[]},
+  {id:'d41',cat:'Agriculture',name:'ColdVault storage leasing',desc:'Source farmers needing cold storage.',repReq:1,time:1,min:15000,max:40000,rate:0.82,prereq:[]},
+  {id:'d42',cat:'Agriculture',name:'AgriExport trade deal',desc:'Connect farm exporters to overseas buyers.',repReq:3,time:2,min:60000,max:150000,rate:0.65,prereq:['d40','d41']},
+  {id:'d43',cat:'Investment',name:'Investment syndication',desc:'Pool HNI investors for large deal. Take 2% plus 20% carry.',repReq:5,time:4,min:100000,max:300000,rate:0.60,prereq:['d44']},
+  {id:'d44',cat:'Investment',name:'Business acquisition deal',desc:'Find buyer for struggling business. Take 20% finder fee.',repReq:3,time:3,min:80000,max:200000,rate:0.65,prereq:[]},
+  {id:'d45',cat:'Investment',name:'Equity stake flip',desc:'Take equity instead of fees. Help grow. Flip to next investor.',repReq:6,time:4,min:150000,max:500000,rate:0.55,prereq:['d43','d44']}
+];
+
+/* ─── HISTORICAL DEAL SCENARIOS ─── */
+/* Profile keys: employee, selfemployed, inheritor, dealmaker, all */
+/* Each scenario has: id, profile[], trigger condition fn, setup, choices[], outcomes{} */
+
+var DEAL_SCENARIOS=[
+
+  /* ── TYPE 1: REFUSED THE BUYER ── */
+  {
+    id:'sc_social_refusal',
+    profiles:['dealmaker','selfemployed'],
+    minMonth:3,
+    title:'The Billion-Dollar Walk-Out',
+    setup:'A struggling search giant — Yohoo — approaches your most promising venture. Their offer: buy it for what feels like a life-changing sum. Your board is excited. The number has many zeros. But you believe you are only 10% of the way there. Yohoo\'s own platform is shrinking. They are buying your future to save their past.',
+    choices:[
+      {
+        id:'sell',
+        label:'Take the money',
+        desc:'Accept Yohoo\'s offer. The cash is real. The future is uncertain.',
+        hint:'A certain win today. But what if you are right about the future?'
+      },
+      {
+        id:'refuse',
+        label:'Walk out of the meeting',
+        desc:'Decline the offer. Bet on your own vision. Accept the risk.',
+        hint:'The founder who did this was called insane by his board. He was 22.'
+      },
+      {
+        id:'counter',
+        label:'Counter at 10x their offer',
+        desc:'Stay in the room but price yourself out. If they say yes, it is worth it.',
+        hint:'The price that makes walking away easy is the price that respects your future.'
+      }
+    ],
+    outcomes:{
+      sell:{
+        title:'You took the money.',
+        body:'Yohoo paid. You celebrated. Three years later your venture — now absorbed into Yohoo\'s dying infrastructure — was shut down quietly. The product that could have changed everything became a footnote in a press release.',
+        lesson:'The acquirer does not buy your vision. They buy what threatens theirs — then bury it.',
+        effect:function(G){G.cash+=sc(500000);G.disciplineScore=Math.max(0,G.disciplineScore-1);},
+        effectLabel:'+cash (short-term win, long-term lesson)'
+      },
+      refuse:{
+        title:'You walked out.',
+        body:'Your board thought you had lost your mind. For 18 months it felt like a mistake. Then growth compounded. Then the numbers became undeniable. The same company that offered you one came back offering a hundred.',
+        lesson:'Knowing your value is the most expensive negotiation skill you will ever develop.',
+        effect:function(G){G.disciplineScore+=2;G.reputation=Math.min(10,G.reputation+2);},
+        effectLabel:'+2 discipline, +2 reputation'
+      },
+      counter:{
+        title:'They said no. You kept building.',
+        body:'The counter shocked them. They declined. You stayed independent. The pressure of almost-selling sharpened your focus. You built faster. Three years later you had outgrown the offer price entirely.',
+        lesson:'A price that makes you comfortable walking away is not greed — it is clarity.',
+        effect:function(G){G.disciplineScore+=1;G.reputation=Math.min(10,G.reputation+1);},
+        effectLabel:'+1 discipline, +1 reputation'
+      }
+    }
+  },
+
+  {
+    id:'sc_search_no',
+    profiles:['dealmaker','selfemployed'],
+    minMonth:2,
+    title:'Nobody Wanted the Search Engine',
+    setup:'Two students built a search engine called Gooble. It is technically brilliant but has no business model. They tried to sell it for a million dollars to the dominant portal of the time — Excitel. You are on the other side of the table. Your team says it is a toy. The market says search is solved. The asking price is laughably small.',
+    choices:[
+      {
+        id:'pass',
+        label:'Pass — search is already solved',
+        desc:'Decline the acquisition. Your portal is profitable. This is a distraction.',
+        hint:'This is what Excitel actually did.'
+      },
+      {
+        id:'buy',
+        label:'Buy it for the asking price',
+        desc:'One million is nothing. The technology is real. Buy it and figure out the model later.',
+        hint:'Nobody in the room could see the model. That was the opportunity.'
+      },
+      {
+        id:'invest',
+        label:'Take a small stake instead',
+        desc:'Do not acquire fully. Invest a small amount for equity and watch what happens.',
+        hint:'Sometimes the right move is a toe in the water, not a full dive.'
+      }
+    ],
+    outcomes:{
+      pass:{
+        title:'You passed.',
+        body:'Gooble went on to raise funding elsewhere. Within five years they were the most visited site on the internet. Within ten years they were the most valuable company in history. The portal you protected is now a memory.',
+        lesson:'The people who think the problem is solved are always the last to see the solution.',
+        effect:function(G){G.disciplineScore=Math.max(0,G.disciplineScore-1);},
+        effectLabel:'−1 discipline (costly blindness)'
+      },
+      buy:{
+        title:'You bought Gooble.',
+        body:'One million dollars. Everyone laughed at you for a year. Then Gooble became the foundation of everything. The business model emerged. The advertising engine was built. You owned a piece of the future for the price of a conference room renovation.',
+        lesson:'Distressed assets in the right category are the best deals nobody takes.',
+        effect:function(G){G.cash+=sc(300000);G.disciplineScore+=2;G.reputation=Math.min(10,G.reputation+2);},
+        effectLabel:'+cash, +2 discipline, +2 reputation'
+      },
+      invest:{
+        title:'You took a small stake.',
+        body:'Not enough to control. Enough to benefit. When Gooble became Gooble, your small stake returned fifty times your investment. Not the best outcome possible — but far better than the people who passed entirely.',
+        lesson:'Partial conviction is still conviction. Not everything requires full commitment.',
+        effect:function(G){G.cash+=sc(150000);G.disciplineScore+=1;},
+        effectLabel:'+cash, +1 discipline'
+      }
+    }
+  },
+
+  /* ── TYPE 2: NOBODY WANTED IT ── */
+  {
+    id:'sc_streaming_early',
+    profiles:['inheritor','employee'],
+    minMonth:4,
+    title:'The DVD Company Nobody Took Seriously',
+    setup:'A small DVD-by-mail company called Streamflix has pivoted to streaming video online. Every major studio was offered the chance to buy it for under 50 million dollars. They all passed — "nobody wants to watch movies on a computer." You have some capital. The founder is still selling.',
+    choices:[
+      {
+        id:'pass',
+        label:'Pass — the model makes no sense',
+        desc:'Physical media is the business. Online streaming has no margins.',
+        hint:'This is what every studio actually decided.'
+      },
+      {
+        id:'buy',
+        label:'Buy a stake at the current valuation',
+        desc:'The technology is real. The behaviour shift is coming. Get in early.',
+        hint:'The studios who passed spent billions trying to catch up later.'
+      },
+      {
+        id:'wait',
+        label:'Watch for one more year before deciding',
+        desc:'Wait for proof before committing capital.',
+        hint:'Waiting for certainty means paying certainty prices.'
+      }
+    ],
+    outcomes:{
+      pass:{
+        title:'You passed.',
+        body:'The studios passed too. Then broadband improved. Then smartphones arrived. Then Streamflix had a hundred million subscribers. The studios spent fifty billion dollars building competing services — for a company they could have owned for fifty million.',
+        lesson:'Incumbents always undervalue what disrupts them. Until it is too late.',
+        effect:function(G){G.disciplineScore=Math.max(0,G.disciplineScore-1);},
+        effectLabel:'−1 discipline'
+      },
+      buy:{
+        title:'You bought in early.',
+        body:'The first two years felt slow. Then everything accelerated. The behaviour shift you believed in arrived faster than expected. Your early stake compounded into something generational.',
+        lesson:'Distribution is worth more than content. Always.',
+        effect:function(G){G.cash+=sc(400000);G.disciplineScore+=2;},
+        effectLabel:'+cash, +2 discipline'
+      },
+      wait:{
+        title:'You waited too long.',
+        body:'By the time the proof arrived, the price had multiplied. You invested at a much higher valuation. You still made money — but a fraction of what early conviction would have returned.',
+        lesson:'Waiting for certainty means paying certainty prices. The return is in the uncertainty.',
+        effect:function(G){G.cash+=sc(80000);G.disciplineScore+=1;},
+        effectLabel:'+small cash gain, +1 discipline'
+      }
+    }
+  },
+
+  /* ── TYPE 3: COMPETED AND WON / LOST ── */
+  {
+    id:'sc_messaging_war',
+    profiles:['dealmaker','inheritor'],
+    minMonth:5,
+    title:'The Messaging War',
+    setup:'Chatpulse — a messaging app with 400 million users and zero revenue — is being acquired. Two giants are bidding: Gooble at 1 billion and Facepage at 19 billion. You advise one of the bidders. The gap is enormous. Gooble thinks Facepage is irrational. Facepage thinks Gooble is being cheap with the future.',
+    choices:[
+      {
+        id:'gooble_side',
+        label:'Advise Gooble — hold the rational bid',
+        desc:'19 billion for zero revenue is insane. Discipline is not overpaying.',
+        hint:'Gooble lost the bid. Then built a competitor. The competitor failed.'
+      },
+      {
+        id:'facepage_side',
+        label:'Advise Facepage — pay whatever it takes',
+        desc:'400 million users is not a product. It is a moat. Pay for the moat.',
+        hint:'Facepage paid 19 billion. Within five years Chatpulse was worth more than that.'
+      },
+      {
+        id:'advise_counter',
+        label:'Advise Chatpulse to reject both and stay independent',
+        desc:'Neither offer reflects the true value. Stay independent and raise at your own terms.',
+        hint:'Independence has a price. So does dependence.'
+      }
+    ],
+    outcomes:{
+      gooble_side:{
+        title:'Gooble held the line. And lost.',
+        body:'Rational discipline cost them the deal. Facepage paid 19 billion and acquired not just an app but a generation. Gooble built Whatchat to compete. It never caught up.',
+        lesson:'In a platform war, the winner pays for the future. The loser pays to catch up.',
+        effect:function(G){G.reputation=Math.max(0,G.reputation-1);},
+        effectLabel:'−1 reputation'
+      },
+      facepage_side:{
+        title:'Facepage paid 19 billion.',
+        body:'The press called it reckless for a week. Then Chatpulse became the primary communication platform for a billion people. The acquisition was called one of the greatest in history.',
+        lesson:'You are not buying what a company is. You are buying what it will become.',
+        effect:function(G){G.cash+=sc(200000);G.reputation=Math.min(10,G.reputation+2);G.disciplineScore+=1;},
+        effectLabel:'+cash, +2 reputation, +1 discipline'
+      },
+      advise_counter:{
+        title:'Chatpulse stayed independent — briefly.',
+        body:'The rejection of both bids created leverage. Chatpulse raised a new round at a higher valuation. Six months later Facepage returned with a larger offer. Independence was a negotiating tool, not a destination.',
+        lesson:'Sometimes the best response to an offer is a better offer — not a yes.',
+        effect:function(G){G.cash+=sc(100000);G.reputation=Math.min(10,G.reputation+1);},
+        effectLabel:'+cash, +1 reputation'
+      }
+    }
+  },
+
+  {
+    id:'sc_video_platform',
+    profiles:['dealmaker','inheritor'],
+    minMonth:4,
+    title:'The Video Platform Nobody Valued',
+    setup:'Gooble is acquiring Viewtube — a video sharing platform — for 1.65 billion dollars. Every media company calls it insane. "It has no content. It has no rights. It has user-generated noise." You have a seat at the table. The media executives are laughing. Gooble is serious.',
+    choices:[
+      {
+        id:'side_media',
+        label:'Side with the media executives — overvalued',
+        desc:'Without content rights, video hosting is a liability not an asset.',
+        hint:'The media companies who laughed are mostly gone now.'
+      },
+      {
+        id:'side_gooble',
+        label:'Side with Gooble — buy the distribution',
+        desc:'Content is temporary. Distribution is permanent. Viewtube owns attention.',
+        hint:'Gooble paid 1.65 billion. Viewtube became the second most visited site on earth.'
+      },
+      {
+        id:'buy_stake',
+        label:'Take your own stake in Viewtube before the deal closes',
+        desc:'If Gooble sees this value, get in before they finalise.',
+        hint:'The best deals happen before the headline.'
+      }
+    ],
+    outcomes:{
+      side_media:{
+        title:'You sided with the wrong room.',
+        body:'Gooble bought Viewtube anyway. Within three years it was the second most visited site on earth. The media companies who laughed spent the next decade trying to compete with what they dismissed.',
+        lesson:'Platforms that distribute attention are worth more than the content on them.',
+        effect:function(G){G.disciplineScore=Math.max(0,G.disciplineScore-1);},
+        effectLabel:'−1 discipline'
+      },
+      side_gooble:{
+        title:'You saw what the media executives missed.',
+        body:'Distribution always wins. Content is rented. Attention is owned. Viewtube became the default destination for human curiosity. The 1.65 billion looked cheap within two years.',
+        lesson:'Distribution beats content. Every time. In every era.',
+        effect:function(G){G.cash+=sc(150000);G.disciplineScore+=1;G.reputation=Math.min(10,G.reputation+1);},
+        effectLabel:'+cash, +1 discipline, +1 reputation'
+      },
+      buy_stake:{
+        title:'You moved before the headline.',
+        body:'Smart money moves before the announcement. Your stake was acquired as part of the Gooble deal at a premium. The return was immediate and significant.',
+        lesson:'The best price is always before everyone else sees the value.',
+        effect:function(G){G.cash+=sc(250000);G.reputation=Math.min(10,G.reputation+2);},
+        effectLabel:'+cash, +2 reputation'
+      }
+    }
+  },
+
+  /* ── TYPE 4: DEAL CLOSED BUT DESTROYED BOTH ── */
+  {
+    id:'sc_phone_funeral',
+    profiles:['dealmaker','selfemployed'],
+    minMonth:6,
+    title:'The Acquisition That Killed Two Giants',
+    setup:'Mikrocorp is acquiring Nokria\'s handset division for 7.2 billion dollars. The stated goal: dominate mobile. Nokria was once the world\'s most valuable brand. Mikrocorp has cash and ambition. Your firm is advising. The synergy deck looks compelling. But the culture gap is a canyon.',
+    choices:[
+      {
+        id:'advise_proceed',
+        label:'Advise the deal proceeds — strategic necessity',
+        desc:'Mobile is the future. Neither company can win alone. Together they can compete.',
+        hint:'This is what the boards decided. The result was catastrophic.'
+      },
+      {
+        id:'advise_stop',
+        label:'Advise against — the cultures cannot merge',
+        desc:'The financials look right. The human reality does not. Acquisitions are culture mergers first.',
+        hint:'The deal destroyed both companies\' mobile ambitions within three years.'
+      },
+      {
+        id:'advise_restructure',
+        label:'Advise a licensing deal instead of acquisition',
+        desc:'Mikrocorp licenses Nokria\'s patents. No cultural merger. No integration risk.',
+        hint:'The value was in the IP, not the organisation.'
+      }
+    ],
+    outcomes:{
+      advise_proceed:{
+        title:'The deal closed. Then everything else closed.',
+        body:'7.2 billion was paid. Integration began immediately and failed immediately. Mikrocorp wrote off 7.6 billion within three years. The combined entity held less than 1% of the smartphone market. Two giants became one slow-moving failure.',
+        lesson:'Buying a sinking ship does not teach you to swim. It makes you sink together.',
+        effect:function(G){G.cash=Math.max(0,G.cash-sc(200000));G.disciplineScore=Math.max(0,G.disciplineScore-1);G.reputation=Math.max(0,G.reputation-1);},
+        effectLabel:'−cash, −1 discipline, −1 reputation'
+      },
+      advise_stop:{
+        title:'You called it correctly.',
+        body:'Your recommendation was ignored. The deal proceeded. Exactly as you predicted, integration failed. But your analysis was documented. Your reputation as someone who reads people — not just numbers — grew significantly.',
+        lesson:'The best due diligence is not financial. It is cultural.',
+        effect:function(G){G.disciplineScore+=2;G.reputation=Math.min(10,G.reputation+2);},
+        effectLabel:'+2 discipline, +2 reputation'
+      },
+      advise_restructure:{
+        title:'A licensing structure saved the IP value.',
+        body:'Nokria licensed its patents to Mikrocorp without the cultural merger. Both companies preserved their independence. Mikrocorp got the technology. Nokria monetised assets without dismantling itself.',
+        lesson:'The right structure matters more than the right price.',
+        effect:function(G){G.cash+=sc(180000);G.reputation=Math.min(10,G.reputation+2);G.disciplineScore+=1;},
+        effectLabel:'+cash, +2 reputation, +1 discipline'
+      }
+    }
+  },
+
+  {
+    id:'sc_media_merger',
+    profiles:['inheritor','dealmaker'],
+    minMonth:5,
+    title:'The Merger That Destroyed Everything',
+    setup:'Timewarner and AOLnet are merging in a 165 billion dollar deal — the largest in history. The pitch: old media meets new internet. Every banker in the world is salivating at the fees. Your firm has a position. You can advise, invest, or stay out.',
+    choices:[
+      {
+        id:'invest',
+        label:'Invest — this is the future of media',
+        desc:'Old media plus internet equals dominance. Get in before the announcement.',
+        hint:'Shareholders lost 200 billion dollars in value from this deal.'
+      },
+      {
+        id:'stay_out',
+        label:'Stay out — two weak strategies do not make one strong one',
+        desc:'AOLnet is declining. Timewarner is scared. Fear-based mergers destroy value.',
+        hint:'The analysts who avoided this saved their clients from catastrophic loss.'
+      },
+      {
+        id:'short',
+        label:'Position against — this will destroy value',
+        desc:'If you are right about the cultural mismatch, the destruction will be significant.',
+        hint:'The brave move when everyone is celebrating is to ask what could go wrong.'
+      }
+    ],
+    outcomes:{
+      invest:{
+        title:'The merger destroyed your investment.',
+        body:'200 billion dollars of shareholder value evaporated. Two companies that needed each other for the wrong reasons merged and became a monument to hubris. Your position was worth a fraction of its entry price within two years.',
+        lesson:'Size is not synergy. Two weak strategies do not become one strong one.',
+        effect:function(G){G.cash=Math.max(0,G.cash-sc(150000));G.disciplineScore=Math.max(0,G.disciplineScore-1);},
+        effectLabel:'−cash, −1 discipline'
+      },
+      stay_out:{
+        title:'You stayed out. You kept your capital.',
+        body:'While others were celebrating the deal of the century, you saw fear dressed as strategy. Staying out was not timidity — it was discipline. Capital preserved is capital available for the next real opportunity.',
+        lesson:'Not losing is sometimes the best investment decision you will ever make.',
+        effect:function(G){G.disciplineScore+=2;},
+        effectLabel:'+2 discipline'
+      },
+      short:{
+        title:'You positioned against the consensus.',
+        body:'It took longer than expected for the destruction to show. But it showed. The cultural collapse was total. Your contrarian position returned significantly as the reality of the merger became undeniable.',
+        lesson:'The brave move when everyone is celebrating is the one nobody wants to take.',
+        effect:function(G){G.cash+=sc(300000);G.disciplineScore+=2;G.reputation=Math.min(10,G.reputation+2);},
+        effectLabel:'+cash, +2 discipline, +2 reputation'
+      }
+    }
+  },
+
+  /* ── TYPE 5: DEALS THAT BUILT EMPIRES ── */
+  {
+    id:'sc_photo_app',
+    profiles:['dealmaker','inheritor'],
+    minMonth:4,
+    title:'13 Employees. No Revenue. One Billion Dollars.',
+    setup:'Facepage is about to buy Photogram — a photo sharing app with 13 employees and no revenue — for one billion dollars. Your network has a stake in Photogram. You can sell now at a guaranteed 10x return, or stay and trust the Facepage thesis that this becomes something much larger.',
+    choices:[
+      {
+        id:'sell_now',
+        label:'Sell your stake now — 10x is extraordinary',
+        desc:'A guaranteed 10x return is the dream. Take it.',
+        hint:'Photogram became worth 100 billion inside a decade.'
+      },
+      {
+        id:'hold',
+        label:'Hold through the acquisition and beyond',
+        desc:'If Facepage is paying one billion for zero revenue, they see something enormous.',
+        hint:'The founder held. The early investors who held became very wealthy.'
+      },
+      {
+        id:'negotiate',
+        label:'Negotiate a partial exit — take half, hold half',
+        desc:'Secure some gains. Keep upside exposure.',
+        hint:'Partial conviction can be the most rational position.'
+      }
+    ],
+    outcomes:{
+      sell_now:{
+        title:'10x felt like everything. Until it was nothing.',
+        body:'You sold at 10x. Then Photogram became worth 100 billion. Your 10x was 0.1% of the total story. The return felt extraordinary until you saw what holding would have returned.',
+        lesson:'Selling too early is the most expensive mistake in venture. Great assets compound beyond imagination.',
+        effect:function(G){G.cash+=sc(200000);G.disciplineScore=Math.max(0,G.disciplineScore-1);},
+        effectLabel:'+cash (but lesson paid)'
+      },
+      hold:{
+        title:'You held. The compounding was extraordinary.',
+        body:'Photogram became one of the greatest acquisitions in history. The 13 employees became the foundation of a billion-user platform. Your stake compounded into generational wealth.',
+        lesson:'You are not buying what a company is. You are buying what it will become.',
+        effect:function(G){G.cash+=sc(600000);G.disciplineScore+=2;G.reputation=Math.min(10,G.reputation+2);},
+        effectLabel:'+cash, +2 discipline, +2 reputation'
+      },
+      negotiate:{
+        title:'Half out. Half compounding.',
+        body:'You secured real gains and kept real upside. Not the maximum return — but a responsible balance of certainty and ambition. The held half returned extraordinary multiples.',
+        lesson:'Taking some chips off the table is not weakness — it is longevity.',
+        effect:function(G){G.cash+=sc(350000);G.disciplineScore+=1;G.reputation=Math.min(10,G.reputation+1);},
+        effectLabel:'+cash, +1 discipline, +1 reputation'
+      }
+    }
+  },
+
+  /* ── EMPLOYEE-SPECIFIC SCENARIOS ── */
+  {
+    id:'sc_stock_options',
+    profiles:['employee'],
+    minMonth:3,
+    title:'The Options Nobody Wanted',
+    setup:'Your employer — a small tech startup — offers you stock options instead of a salary raise. The options are worth nothing today. The company might fail. Most of your colleagues are taking the cash raise instead. The startup\'s product is genuinely different from anything in the market.',
+    choices:[
+      {
+        id:'take_cash',
+        label:'Take the salary raise — cash is real',
+        desc:'Options might be worthless. Salary is guaranteed.',
+        hint:'The colleagues who chose cash at companies like Applix in 1997 still regret it.'
+      },
+      {
+        id:'take_options',
+        label:'Take the options — bet on the company',
+        desc:'If the company works, the options could be worth everything.',
+        hint:'Options in a great company at an early stage are the most underpriced asset in existence.'
+      },
+      {
+        id:'negotiate_both',
+        label:'Negotiate half salary raise and half options',
+        desc:'Take some security and some upside.',
+        hint:'The rational middle — but the extraordinary return only comes from full conviction.'
+      }
+    ],
+    outcomes:{
+      take_cash:{
+        title:'You took the safe path.',
+        body:'The salary raise felt good. Three years later the startup went public. Your colleagues who took options became millionaires. You received your salary every month — exactly as promised. Nothing more.',
+        lesson:'A salary is the price your employer pays to own your time. Options are the price of owning the future.',
+        effect:function(G){G.cash+=sc(50000);G.disciplineScore=Math.max(0,G.disciplineScore-1);},
+        effectLabel:'+small cash, −1 discipline'
+      },
+      take_options:{
+        title:'The options vested. Everything changed.',
+        body:'Two years of vesting. One IPO. Your options were worth a hundred times the salary raise you declined. The risk that felt enormous at the time looks obvious in hindsight.',
+        lesson:'The biggest financial risk is never taking one.',
+        effect:function(G){G.cash+=sc(400000);G.disciplineScore+=2;},
+        effectLabel:'+cash, +2 discipline'
+      },
+      negotiate_both:{
+        title:'Half security. Half future.',
+        body:'A smaller options grant than the full bet, but real upside nonetheless. When the company went public, your partial position returned meaningfully — not life-changing, but significant.',
+        lesson:'Partial conviction still beats no conviction.',
+        effect:function(G){G.cash+=sc(180000);G.disciplineScore+=1;},
+        effectLabel:'+cash, +1 discipline'
+      }
+    }
+  },
+
+  /* ── SELF-EMPLOYED SPECIFIC ── */
+  {
+    id:'sc_sell_or_keep',
+    profiles:['selfemployed'],
+    minMonth:6,
+    title:'The Offer for Your Business',
+    setup:'You built something real. A strategic buyer approaches with an offer to acquire your business for 15x annual revenue. The number is significant. But the business is growing 40% per year. The buyer knows this. They are offering now because they believe it will be worth much more in two years.',
+    choices:[
+      {
+        id:'sell',
+        label:'Sell — 15x is extraordinary',
+        desc:'Exit. Deploy the capital into passive assets. Build the next thing.',
+        hint:'There is no wrong answer here. Only different futures.'
+      },
+      {
+        id:'keep',
+        label:'Keep — 40% growth compounds fast',
+        desc:'At this growth rate, 15x today is 3x in two years.',
+        hint:'But growth always slows. And buyers do not always return.'
+      },
+      {
+        id:'partial',
+        label:'Sell 40% — take cash, keep control',
+        desc:'Bring in a partner. Fund the growth. Keep the upside.',
+        hint:'Strategic capital with retained control is a different game entirely.'
+      }
+    ],
+    outcomes:{
+      sell:{
+        title:'You sold. You deployed. You moved.',
+        body:'The capital from the sale went into assets that worked without you. For the first time, income arrived while you slept. The business you built became the launchpad for a different life.',
+        lesson:'The purpose of building a business is not to own it forever. It is to create options.',
+        effect:function(G){G.cash+=sc(800000);G.disciplineScore+=1;},
+        effectLabel:'+significant cash, +1 discipline'
+      },
+      keep:{
+        title:'You held. The growth continued — until it did not.',
+        body:'Two more years of 40% growth. Then the market shifted. The buyer moved on. A new offer came — at 8x. The window at 15x had closed. You still built something valuable, but the optimal exit had passed.',
+        lesson:'Great businesses have optimal exit windows. They do not stay open forever.',
+        effect:function(G){G.cash+=sc(300000);G.disciplineScore+=1;},
+        effectLabel:'+cash (but below optimal)'
+      },
+      partial:{
+        title:'Strategic capital changed the trajectory.',
+        body:'The 40% stake brought in a partner with distribution the business could not have built alone. Revenue accelerated. Two years later the full business sold at 25x. The partial sale was the best decision.',
+        lesson:'The right partner with capital is worth more than full control of a smaller thing.',
+        effect:function(G){G.cash+=sc(500000);G.disciplineScore+=2;G.reputation=Math.min(10,G.reputation+2);},
+        effectLabel:'+cash, +2 discipline, +2 reputation'
+      }
+    }
+  },
+
+  /* ── INHERITOR SPECIFIC ── */
+  {
+    id:'sc_family_land',
+    profiles:['inheritor'],
+    minMonth:3,
+    title:'The Family Land Offer',
+    setup:'A developer approaches with an offer to buy the family land at current market value. The land has been in your family for three generations. It generates modest rental income. The developer\'s offer is significant — but the land sits near an upcoming infrastructure project that will triple its value in five years. Only people who read the government planning notices know this.',
+    choices:[
+      {
+        id:'sell_now',
+        label:'Sell at current market value',
+        desc:'The cash is real. The infrastructure project might not happen.',
+        hint:'Most families in this position sold. The infrastructure project always happened.'
+      },
+      {
+        id:'hold',
+        label:'Hold — the infrastructure project changes everything',
+        desc:'You have read the notices. The value will triple. Patience is the strategy.',
+        hint:'Information asymmetry is the oldest edge in real estate.'
+      },
+      {
+        id:'develop',
+        label:'Develop it yourself before the project completes',
+        desc:'Do not wait for the government. Build on it now and capture the uplift.',
+        hint:'The active move requires capital and risk. But the return is direct.'
+      }
+    ],
+    outcomes:{
+      sell_now:{
+        title:'You sold at yesterday\'s price.',
+        body:'The cash arrived. Then the infrastructure project was announced publicly. The land tripled in value within three years. The developer who bought from you made ten times your sale price.',
+        lesson:'Information advantage is only an advantage if you act on it.',
+        effect:function(G){G.cash+=sc(300000);G.disciplineScore=Math.max(0,G.disciplineScore-1);},
+        effectLabel:'+cash (below potential), −1 discipline'
+      },
+      hold:{
+        title:'Patience delivered.',
+        body:'The infrastructure project was announced. The land tripled. You did nothing except not sell. Inaction, when you hold the right asset, is the highest-return strategy available.',
+        lesson:'The best investment decision is often the one you do not make.',
+        effect:function(G){G.cash+=sc(600000);G.disciplineScore+=2;},
+        effectLabel:'+significant cash, +2 discipline'
+      },
+      develop:{
+        title:'You built. The infrastructure amplified everything.',
+        body:'Development costs were significant. But the infrastructure project delivered exactly what the notices promised. Your developed asset in the path of progress returned far more than the raw land would have.',
+        lesson:'Assets in the path of progress compound faster than assets waiting for progress.',
+        effect:function(G){G.cash+=sc(800000);G.disciplineScore+=1;G.reputation=Math.min(10,G.reputation+1);},
+        effectLabel:'+significant cash, +1 discipline, +1 reputation'
+      }
+    }
+  },
+
+  /* ── UNIVERSAL SCENARIOS (all profiles) ── */
+  {
+    id:'sc_market_crash',
+    profiles:['employee','selfemployed','inheritor','dealmaker'],
+    minMonth:6,
+    title:'The Crash Everyone Saw Coming',
+    setup:'Markets are falling. Every headline says sell. Your advisor is nervous. Your portfolio is down 35%. The same assets that were expensive six months ago are now on sale. Panic is the dominant emotion in the room. You have cash reserves.',
+    choices:[
+      {
+        id:'sell',
+        label:'Sell — protect what is left',
+        desc:'Stop the bleeding. Move to cash. Wait for clarity.',
+        hint:'Selling in a crash locks in the loss permanently.'
+      },
+      {
+        id:'hold',
+        label:'Hold — do not crystallise the loss',
+        desc:'Stay invested. Markets recover. Patience is the strategy.',
+        hint:'Every crash in history was eventually followed by a recovery.'
+      },
+      {
+        id:'buy',
+        label:'Buy more — everything is on sale',
+        desc:'Fear is the discount. Deploy reserves into assets at 35% off.',
+        hint:'The investors who bought in the crash of 2008 made generational returns by 2015.'
+      }
+    ],
+    outcomes:{
+      sell:{
+        title:'You sold at the bottom.',
+        body:'The market recovered within eighteen months. You locked in a 35% loss permanently. The assets you sold at the bottom were worth double your purchase price three years later. Panic is the most expensive emotion in investing.',
+        lesson:'The market always recovers. The investor who sells in panic never fully does.',
+        effect:function(G){G.cash+=sc(50000);G.disciplineScore=Math.max(0,G.disciplineScore-2);},
+        effectLabel:'+small cash (from sales), −2 discipline'
+      },
+      hold:{
+        title:'You held. The recovery came.',
+        body:'Eighteen months of discomfort. Then the recovery arrived. Your portfolio returned to its original value — then exceeded it. Holding is not passive. It requires more courage than selling.',
+        lesson:'Doing nothing in a crash is one of the hardest and most valuable skills in wealth-building.',
+        effect:function(G){G.disciplineScore+=2;},
+        effectLabel:'+2 discipline'
+      },
+      buy:{
+        title:'You bought the fear.',
+        body:'Deploying capital when everyone else was fleeing required extraordinary conviction. Three years later your crash purchases had returned over 100%. The investors who bought at the bottom made careers from that decision.',
+        lesson:'Maximum fear is minimum price. That is the only time to buy.',
+        effect:function(G){G.cash+=sc(350000);G.disciplineScore+=3;G.reputation=Math.min(10,G.reputation+1);},
+        effectLabel:'+cash, +3 discipline, +1 reputation'
+      }
+    }
+  },
+
+  {
+    id:'sc_free_disruption',
+    profiles:['employee','selfemployed','dealmaker'],
+    minMonth:4,
+    title:'Free Is a Business Model',
+    setup:'Jiotel enters your market offering completely free data — zero cost, unlimited usage. Every incumbent analyst says it is unsustainable. "They will run out of money in six months." You have a significant investment in one of the incumbents. You also have the opportunity to move capital into Jiotel\'s parent company.',
+    choices:[
+      {
+        id:'stay_incumbent',
+        label:'Stay with the incumbent — free cannot last',
+        desc:'Jiotel is burning cash. The incumbents have infrastructure and profits.',
+        hint:'Three incumbent carriers went bankrupt within 18 months of Jiotel\'s launch.'
+      },
+      {
+        id:'move_to_jiotel',
+        label:'Move capital to Jiotel\'s parent — free is the strategy',
+        desc:'Free is not a cost. It is a customer acquisition strategy at scale.',
+        hint:'Jiotel gained 400 million users in 18 months. The incumbents never recovered.'
+      },
+      {
+        id:'split',
+        label:'Split — hedge between incumbent and disruptor',
+        desc:'Reduce incumbent exposure. Take a position in the disruptor.',
+        hint:'Hedging is rational. But full conviction in the right direction pays more.'
+      }
+    ],
+    outcomes:{
+      stay_incumbent:{
+        title:'The incumbents did not survive.',
+        body:'Three carriers went bankrupt. The fourth was forced to sell at distressed prices. Your incumbent investment lost 80% of its value. Jiotel had 400 million users and was building a digital empire on top of its network.',
+        lesson:'Free is a business model. The incumbents always find out too late.',
+        effect:function(G){G.cash=Math.max(0,G.cash-sc(200000));G.disciplineScore=Math.max(0,G.disciplineScore-1);},
+        effectLabel:'−cash, −1 discipline'
+      },
+      move_to_jiotel:{
+        title:'You moved with the disruption.',
+        body:'400 million users. Then financial services. Then commerce. Then entertainment. Jiotel became the infrastructure for an entire digital economy. Your early position in the parent company compounded across every new vertical.',
+        lesson:'The disruptor who wins the network war wins everything built on top of it.',
+        effect:function(G){G.cash+=sc(500000);G.disciplineScore+=2;G.reputation=Math.min(10,G.reputation+1);},
+        effectLabel:'+cash, +2 discipline, +1 reputation'
+      },
+      split:{
+        title:'The hedge softened the blow.',
+        body:'The incumbent position was painful. The Jiotel position was extraordinary. Combined, the portfolio was positive — and the lesson about hedging disruption was learned at a manageable cost.',
+        lesson:'A hedge against disruption is always worth less than full conviction in the right direction.',
+        effect:function(G){G.cash+=sc(150000);G.disciplineScore+=1;},
+        effectLabel:'+cash, +1 discipline'
+      }
+    }
+  },
+
+  /* ── INHERITOR-SPECIFIC SCENARIOS ── */
+  {
+    id:'sc_inheritor_trust',
+    profiles:['inheritor'],
+    minMonth:2,
+    title:'The Advisor Who Knew Best',
+    setup:'Your family wealth manager has been handling the estate for 20 years. He recommends moving 60% of your inherited portfolio into a "guaranteed" structured product he is selling. Your uncle — a retired businessman — quietly tells you the product has high hidden fees and the manager earns a large commission from it. The manager has never lost money for your family before.',
+    choices:[
+      {
+        id:'trust_manager',
+        label:'Trust the manager — 20 years of loyalty means something',
+        desc:'He has never failed the family. The product must be sound.',
+        hint:'Commission-driven advice is never truly independent advice.'
+      },
+      {
+        id:'trust_uncle',
+        label:'Listen to your uncle — follow the incentives',
+        desc:'Ask who benefits from this recommendation before you decide.',
+        hint:'The best financial advice always comes from someone with nothing to gain.'
+      },
+      {
+        id:'do_own_research',
+        label:'Pause — read the product documents yourself before deciding',
+        desc:'Never sign anything you have not personally understood.',
+        hint:'Most financial disasters begin with documents nobody actually read.'
+      }
+    ],
+    outcomes:{
+      trust_manager:{
+        title:'The fees compounded. The returns did not.',
+        body:'The product performed — but after fees, your actual return was a fraction of the market. The manager earned a significant commission. Your loyalty cost you years of compounding.',
+        lesson:'The person selling you a financial product is not your advisor. They are a salesperson.',
+        effect:function(G){G.cash=Math.max(0,G.cash-sc(120000));G.disciplineScore=Math.max(0,G.disciplineScore-1);},
+        effectLabel:'−cash, −1 discipline'
+      },
+      trust_uncle:{
+        title:'You followed the incentives. You kept the capital.',
+        body:'Your uncle was right. The hidden fees would have eroded returns significantly over time. You moved the capital into index funds instead. The manager was offended. The portfolio thanked you.',
+        lesson:'Always ask: what does this person earn if I say yes? That answer tells you everything.',
+        effect:function(G){G.cash+=sc(80000);G.disciplineScore+=2;},
+        effectLabel:'+cash, +2 discipline'
+      },
+      do_own_research:{
+        title:'You read the documents. You found the fees on page 47.',
+        body:'Hidden in the fine print was a 3.5% annual management fee and a 5% early exit penalty. You declined the product, moved the capital yourself and earned the full market return. Reading one document saved years of compounding.',
+        lesson:'Page 47 is where they hide the truth. Always read page 47.',
+        effect:function(G){G.cash+=sc(120000);G.disciplineScore+=3;},
+        effectLabel:'+cash, +3 discipline'
+      }
+    }
+  },
+
+  {
+    id:'sc_inheritor_business',
+    profiles:['inheritor'],
+    minMonth:4,
+    title:'The Family Business You Did Not Build',
+    setup:'Your family owns a profitable manufacturing business. A private equity firm offers to buy it for 15x earnings — a life-changing sum. Your cousins want to sell immediately and split the proceeds. Your father built this business over 30 years and left it to you. The business still has strong cash flow but the industry is changing fast.',
+    choices:[
+      {
+        id:'sell_all',
+        label:'Sell — take the 15x and deploy into diversified assets',
+        desc:'15x earnings is a premium valuation. The capital can work harder elsewhere.',
+        hint:'Concentrated family business risk is real. Diversification is not betrayal.'
+      },
+      {
+        id:'refuse_sell',
+        label:'Refuse to sell — honour what your father built',
+        desc:'This business is legacy, not just income. You will grow it yourself.',
+        hint:'Emotional attachment to assets is the most expensive kind.'
+      },
+      {
+        id:'partial_sell',
+        label:'Sell 60% — take capital off the table, keep operational control',
+        desc:'Partner with the PE firm. Take liquidity. Keep upside and legacy.',
+        hint:'The best deal is often the one that gives you both certainty and future.'
+      }
+    ],
+    outcomes:{
+      sell_all:{
+        title:'You took the premium. You deployed the capital.',
+        body:'15x earnings was a once-in-a-decade valuation. You sold, diversified across five asset classes and generated more passive income than the business ever produced. The industry shifted two years later — the PE firm struggled. You did not.',
+        lesson:'Valuation is a moment in time. Diversification is permanent protection.',
+        effect:function(G){G.cash+=sc(500000);G.disciplineScore+=2;G.reputation=Math.min(10,G.reputation+1);},
+        effectLabel:'+cash, +2 discipline, +1 reputation'
+      },
+      refuse_sell:{
+        title:'Loyalty is not a strategy.',
+        body:'You kept the business. The industry shifted. Margins compressed. Two years later a buyer offered 6x — less than half the original offer. Emotional attachment to an asset had a very precise cost.',
+        lesson:'Your father built it for your freedom — not for you to be imprisoned by it.',
+        effect:function(G){G.cash=Math.max(0,G.cash-sc(100000));G.disciplineScore=Math.max(0,G.disciplineScore-1);},
+        effectLabel:'−cash, −1 discipline'
+      },
+      partial_sell:{
+        title:'You took liquidity and kept the legacy.',
+        body:'The PE firm brought operational expertise. You brought knowledge and continuity. The business grew. Your diversified capital also grew. You had both — the security of diversification and the upside of ownership.',
+        lesson:'The best deals create options — not obligations.',
+        effect:function(G){G.cash+=sc(300000);G.disciplineScore+=2;G.reputation=Math.min(10,G.reputation+2);},
+        effectLabel:'+cash, +2 discipline, +2 reputation'
+      }
+    }
+  }
+];
+
+/* ─── REGULAR EVENT CARDS ─── */
+var ALL_EVENTS=[
+  {type:'opportunity',title:'Angel deal on the table',body:'An investor offers to fund your next venture for 20% equity. Vision from you, capital from them.',effect:'+80,000 injected',fn:function(G){G.cash+=sc(80000);}},
+  {type:'setback',title:'Self-employed trap activated',body:'You fell sick for 2 weeks. Business made zero. No systems. No income.',effect:'-50,000 lost',fn:function(G){G.cash=Math.max(0,G.cash-sc(50000));}},
+  {type:'lesson',title:'The time audit revelation',body:'80% of what you do could be done by someone paid far less.',effect:'Delegation 50% off this month',fn:function(G){G.delegDiscount=true;}},
+  {type:'opportunity',title:'Investment windfall',body:'One of your assets had an exceptional quarter.',effect:'+30,000 bonus',fn:function(G){G.cash+=sc(30000);}},
+  {type:'setback',title:'Lifestyle inflation',body:'Good month. You upgraded. Expenses never came back down.',effect:'+8,000 permanent monthly expense',fn:function(G){G.expenses.push({id:'lif_'+G.month+'_'+G.year,label:'Lifestyle upgrade (Y'+G.year+' M'+G.month+')',amount:sc(8000),type:'discretionary',locked:false,mandatory:false});}},
+  {type:'opportunity',title:'Joint venture carry',body:'You connected two parties who needed each other. 15% carry.',effect:'+45,000 carry',fn:function(G){G.cash+=sc(45000);}},
+  {type:'setback',title:'Single point of failure',body:'Your biggest client walked. Revenue dropped 60% overnight.',effect:'-40,000',fn:function(G){G.cash=Math.max(0,G.cash-sc(40000));}},
+  {type:'opportunity',title:'Delegation breakthrough',body:'Your team handled the entire month without a single call to you.',effect:'-4 time units freed permanently',fn:function(G){G.timeUsed=Math.max(0,G.timeUsed-4);}},
+  {type:'lesson',title:'The plutocrat realisation',body:'Net worth is not salary. It is the value of assets producing income without requiring your time.',effect:'Wisdom card',fn:function(){}},
+  {type:'market',title:'Bull market quarter',body:'Everything went up. Patience rewarded again.',effect:'+25,000',fn:function(G){G.cash+=sc(25000);}},
+  {type:'market',title:'Market correction',body:'The market dipped. The panicked sold. The patient held.',effect:'-20,000',fn:function(G){G.cash=Math.max(0,G.cash-sc(20000));}},
+  {type:'opportunity',title:'Royalty stream unlocked',body:'Something you created once now generates recurring revenue forever.',effect:'+12,000/mo new passive stream',fn:function(G){G.assets.push({id:'royalty_'+G.month,name:'Royalty stream',type:'passive',bucket:'cf',income:sc(12000),expense:sc(200),time:0,count:1,newThisMonth:true,monthsOwned:0});recalc(G);}},
+  {type:'setback',title:'Medical emergency',body:'Unplanned medical costs. No passive income means you felt every unit.',effect:'-45,000',fn:function(G){G.cash=Math.max(0,G.cash-sc(45000));}},
+  {type:'lesson',title:"OPM — Other People's Money",body:'The wealthy rarely use their own money. Leverage is the tool.',effect:'Next investment 25% off',fn:function(G){G.opmDiscount=true;}},
+  {type:'opportunity',title:'Strategic partnership',body:'A complementary business wants to cross-promote. Zero cost.',effect:'+22,000',fn:function(G){G.cash+=sc(22000);}},
+  {type:'setback',title:'Rental vacancy',body:'Your rental property sat empty this month. Zero rent. Maintenance still ran.',effect:'Rental income skipped this month',fn:function(G){G.assets.forEach(function(a){if(a.type==='real estate'&&!a.newThisMonth)a.vacantThisMonth=true;});}},
+  {type:'setback',title:'Property damage',body:'Tenant caused significant damage. Emergency repair bill arrived.',effect:'-30,000 unexpected repair',fn:function(G){G.cash=Math.max(0,G.cash-sc(30000));}},
+  {type:'setback',title:'Platform demonetisation',body:'Your content channel was demonetised for a month. Zero ad revenue.',effect:'Content channel income skipped this month',fn:function(G){G.assets.forEach(function(a){if(a.id==='content')a.vacantThisMonth=true;});}},
+  {type:'market',title:'Startup IPO exit',body:'A startup you backed went public. Early believers rewarded.',effect:'+60,000',fn:function(G){G.cash+=sc(60000);}},
+  {type:'lesson',title:'Time is the only non-renewable resource',body:'You can make more money. You cannot make more time.',effect:'1 time unit freed this month',fn:function(G){G.timeUsed=Math.max(0,G.timeUsed-1);}}
+];
+
+/* ─── BLACK SWAN EVENTS ─── */
+var BLACK_SWAN_EVENTS=[
+  {type:'blackswan',title:'Market crash',body:'Global markets collapsed 40%. Portfolios wiped. Leveraged investors destroyed. Cash holders survived.',effect:'50% of cash wiped',fn:function(G){G.cash=Math.floor(G.cash*0.5);}},
+  {type:'blackswan',title:'Legal dispute',body:'A deal gone wrong. Legal fees and settlement costs arrive without warning. Protect everything.',effect:'-60% of cash in legal costs',fn:function(G){G.cash=Math.floor(G.cash*0.4);}},
+  {type:'blackswan',title:'Health crisis',body:'Six months of treatment. Business paused. Income disrupted. The one thing money cannot fully solve.',effect:'-40% of cash + 1 month income suspended',fn:function(G){G.cash=Math.floor(G.cash*0.6);G.assets.forEach(function(a){if(!a.newThisMonth)a.vacantThisMonth=true;});}},
+  {type:'blackswan',title:'Regulatory shutdown',body:'A new law shut down your primary revenue stream overnight. No warning. No appeal.',effect:'Largest asset suspended for 2 months',fn:function(G){var active=G.assets.filter(function(a){return !a.newThisMonth;});if(active.length){active.sort(function(a,b){return b.income-a.income;});active[0].vacantThisMonth=true;active[0].regulatorySuspended=2;}}},
+  {type:'blackswan',title:'Key person dependency',body:'Your most important partner left. Took clients, relationships and half the deal pipeline.',effect:'-35% cash + reputation drops 2',fn:function(G){G.cash=Math.floor(G.cash*0.65);G.reputation=Math.max(0,G.reputation-2);}},
+  {type:'blackswan',title:'Currency devaluation',body:'The local currency lost 30% of value overnight. Import costs spiked. Asset values dropped.',effect:'All expenses increase 20% this month',fn:function(G){G.blackSwanExpenseSpike=0.20;}}
+];
+
+/* ─── SMART EVENT RESPONSES ─── */
+/* Each event type has 3 tiers: unprepared, partial, prepared */
+/* Conditions evaluated against G at event time */
+var EVENT_RESPONSES={
+  'Rental vacancy':{
+    check:function(G){
+      var cashRatio=G.cash/Math.max(1,totalExp());
+      var hasManager=G.hasManager;
+      if(hasManager||cashRatio>=6)return 'prepared';
+      if(cashRatio>=3)return 'partial';
+      return 'unprepared';
+    },
+    unprepared:{
+      title:'Full vacancy loss.',
+      body:'No cash buffer. No manager. The empty month hit you directly. You had no protection built.',
+      why:'Your cash reserves were below 3x monthly expenses and you had no manager.',
+      damage:function(G){G.assets.forEach(function(a){if(a.type==='real estate'&&!a.newThisMonth)a.vacantThisMonth=true;});}
+    },
+    partial:{
+      title:'Cash buffer absorbed the vacancy.',
+      body:'Your reserves covered the missing month. No income, but no crisis either.',
+      why:'Your cash buffer was between 3x and 6x monthly expenses.',
+      damage:function(G){G.assets.forEach(function(a){if(a.type==='real estate'&&!a.newThisMonth)a.vacantThisMonth=true;});}
+    },
+    prepared:{
+      title:'Manager handled it. Zero impact.',
+      body:'Your manager found a replacement tenant quickly. The vacancy lasted days, not months.',
+      why:'Your manager or strong cash reserves meant this was a non-event.',
+      damage:function(){}
+    }
+  },
+  'Market crash':{
+    check:function(G){
+      var hasDiversified=G.assets.filter(function(a){return !a.newThisMonth;}).length>=3;
+      var highDiscipline=G.disciplineScore>=5;
+      var hasLoan=G.loanAmount>0;
+      if(hasDiversified&&highDiscipline&&!hasLoan)return 'prepared';
+      if(hasDiversified||highDiscipline)return 'partial';
+      return 'unprepared';
+    },
+    unprepared:{
+      title:'Full crash impact.',
+      body:'Concentrated position. Active loan. No discipline buffer. The crash hit everything.',
+      why:'Single asset type, low discipline score, and active debt amplified the damage.',
+      damage:function(G){G.cash=Math.floor(G.cash*0.5);if(G.loanAmount>0)G.cash=Math.floor(G.cash*0.8);}
+    },
+    partial:{
+      title:'Partial protection held.',
+      body:'Diversification or discipline reduced the impact. Not zero — but manageable.',
+      why:'Some diversification or discipline score gave partial protection.',
+      damage:function(G){G.cash=Math.floor(G.cash*0.75);}
+    },
+    prepared:{
+      title:'Buying opportunity. No damage.',
+      body:'Diversified portfolio. No debt. High discipline. The crash was a sale, not a crisis.',
+      why:'Your preparation turned a black swan into an opportunity.',
+      damage:function(G){G.cash+=sc(50000);}
+    }
+  },
+  'Health crisis':{
+    check:function(G){
+      var np=netPassive();var exp=totalExp();
+      var hasManager=G.hasManager;
+      if(np>=exp&&hasManager)return 'prepared';
+      if(np>=exp||hasManager)return 'partial';
+      return 'unprepared';
+    },
+    unprepared:{
+      title:'Total income loss.',
+      body:'No systems. No passive income. Everything stopped when you stopped. Six months of recovery with zero income.',
+      why:'You are the business. When you cannot work, the business cannot work.',
+      damage:function(G){G.cash=Math.floor(G.cash*0.6);G.assets.forEach(function(a){if(!a.newThisMonth)a.vacantThisMonth=true;});}
+    },
+    partial:{
+      title:'Partial continuity.',
+      body:'Either your manager kept things running or your passive income covered expenses. Not both — but enough to survive.',
+      why:'One layer of protection held. The other was missing.',
+      damage:function(G){G.cash=Math.floor(G.cash*0.8);}
+    },
+    prepared:{
+      title:'Zero financial impact.',
+      body:'Passive income covered all expenses. Manager kept business running. You recovered without financial trauma.',
+      why:'Passive income plus systems meant the crisis was personal — not financial.',
+      damage:function(){}
+    }
+  },
+  'Platform demonetisation':{
+    check:function(G){
+      var incomeStreams=G.assets.filter(function(a){return !a.newThisMonth&&a.income>0;}).length;
+      var hasSOP=G.assets.find(function(a){return a.id==='build_sop'&&!a.newThisMonth;});
+      if(incomeStreams>=3&&hasSOP)return 'prepared';
+      if(incomeStreams>=2||hasSOP)return 'partial';
+      return 'unprepared';
+    },
+    unprepared:{
+      title:'Total content income lost.',
+      body:'Single income stream. No systems. The demonetisation wiped your entire revenue for the month.',
+      why:'One income stream means one point of failure. It failed.',
+      damage:function(G){G.assets.forEach(function(a){if(a.id==='content')a.vacantThisMonth=true;});}
+    },
+    partial:{
+      title:'Content hit. Everything else held.',
+      body:'The channel went dark but your other income streams continued. The total damage was contained.',
+      why:'Multiple income streams or SOP meant the content loss was partial.',
+      damage:function(G){G.assets.forEach(function(a){if(a.id==='content')a.vacantThisMonth=true;});}
+    },
+    prepared:{
+      title:'Minimal impact. Recovery started immediately.',
+      body:'Multiple streams absorbed the content loss. SOP meant the recovery plan was already documented.',
+      why:'Diversification and systems turned a setback into a minor disruption.',
+      damage:function(G){G.assets.forEach(function(a){if(a.id==='content')a.vacantThisMonth=true;});}
+    }
+  },
+
+  'Legal dispute':{
+    check:function(G){
+      var cashRatio=G.cash/Math.max(1,totalExp());
+      var hasSOP=G.assets.find(function(a){return a.id==='build_sop'&&!a.newThisMonth;});
+      var highDiscipline=G.disciplineScore>=5;
+      if(hasSOP&&cashRatio>=6)return 'prepared';
+      if(hasSOP||cashRatio>=4||highDiscipline)return 'partial';
+      return 'unprepared';
+    },
+    unprepared:{
+      title:'Full legal cost absorbed.',
+      body:'No documented systems, no cash buffer. Legal fees consumed 60% of your reserves. Deals with undocumented terms carry maximum exposure.',
+      why:'No SOP and low cash reserves meant you had zero protection when the dispute arrived.',
+      damage:function(G){G.cash=Math.floor(G.cash*0.4);}
+    },
+    partial:{
+      title:'Partial protection held.',
+      body:'Some documentation or cash buffer reduced the damage. The dispute was costly but survivable.',
+      why:'Either documented processes or a cash buffer provided partial defence.',
+      damage:function(G){G.cash=Math.floor(G.cash*0.7);}
+    },
+    prepared:{
+      title:'Documented and defended.',
+      body:'Every agreement had paper trails. Legal fees were covered by your buffer. The dispute resolved quickly because your systems made your position clear.',
+      why:'SOP documentation and strong cash reserves gave your legal team what they needed.',
+      damage:function(G){G.cash=Math.floor(G.cash*0.88);}
+    }
+  },
+
+  'Key person dependency':{
+    check:function(G){
+      var hasSOP=G.assets.find(function(a){return a.id==='build_sop'&&!a.newThisMonth;});
+      var hasManager=G.hasManager;
+      var streams=G.assets.filter(function(a){return !a.newThisMonth&&a.income>0;}).length;
+      if(hasSOP&&hasManager)return 'prepared';
+      if(hasSOP||hasManager||(streams>=3))return 'partial';
+      return 'unprepared';
+    },
+    unprepared:{
+      title:'Everything walked out the door with them.',
+      body:'No documented processes. No redundancy. One person leaving took clients, relationships and the deal pipeline. The business was the person — not the system.',
+      why:'Without SOP or a manager, your operation had no institutional memory.',
+      damage:function(G){G.cash=Math.floor(G.cash*0.65);G.reputation=Math.max(0,G.reputation-2);}
+    },
+    partial:{
+      title:'Painful but recoverable.',
+      body:'You lost some of the pipeline. But either your systems preserved the client relationships or your manager bridged the gap. You rebuilt within the month.',
+      why:'One layer of protection — SOP, manager, or diversified income — absorbed the impact.',
+      damage:function(G){G.cash=Math.floor(G.cash*0.82);G.reputation=Math.max(0,G.reputation-1);}
+    },
+    prepared:{
+      title:'The system did not miss a beat.',
+      body:'Documented processes meant nobody could walk out with institutional knowledge. Your manager had full context. The departure was an inconvenience, not a crisis.',
+      why:'SOP plus manager meant your business ran on systems, not on people.',
+      damage:function(G){G.cash=Math.floor(G.cash*0.95);}
+    }
+  },
+
+  'Medical emergency':{
+    check:function(G){
+      var np=netPassive();var exp=totalExp();
+      var cashRatio=G.cash/Math.max(1,exp);
+      var hasManager=G.hasManager;
+      if(np>=exp&&hasManager&&cashRatio>=6)return 'prepared';
+      if(np>=exp||hasManager||cashRatio>=4)return 'partial';
+      return 'unprepared';
+    },
+    unprepared:{
+      title:'Stopped earning. Still spending.',
+      body:'No passive income. No manager. When you could not work, everything stopped except the bills. Six weeks of zero income with full expenses.',
+      why:'Without passive income or systems, your income was entirely dependent on your physical presence.',
+      damage:function(G){G.cash=Math.floor(G.cash*0.55);}
+    },
+    partial:{
+      title:'Partial continuity.',
+      body:'Either your passive income covered the basics or your manager kept things moving. Not both — but enough to prevent a crisis.',
+      why:'One layer of protection held while the other was missing.',
+      damage:function(G){G.cash=Math.floor(G.cash*0.78);}
+    },
+    prepared:{
+      title:'The portfolio did not need you to recover.',
+      body:'Passive income covered all expenses. Manager kept operations running. The emergency was personal — not financial. Your systems gave you the space to heal.',
+      why:'Strong passive income, manager automation, and cash buffer created a complete safety net.',
+      damage:function(){}
+    }
+  },
+
+  'Single point of failure':{
+    check:function(G){
+      var streams=G.assets.filter(function(a){return !a.newThisMonth&&a.income>0;}).length;
+      var cats=[];
+      G.assets.forEach(function(a){if(!a.newThisMonth&&a.bucket&&cats.indexOf(a.bucket)===-1)cats.push(a.bucket);});
+      var diversified=cats.length>=3;
+      if(streams>=4&&diversified)return 'prepared';
+      if(streams>=2||diversified)return 'partial';
+      return 'unprepared';
+    },
+    unprepared:{
+      title:'One client gone. Everything gone.',
+      body:'Your biggest client walked. Revenue dropped 60% instantly. When one source is your entire income, it is not a business — it is a dependency.',
+      why:'Single income source with no diversification meant this was a total failure.',
+      damage:function(G){G.cash=Math.max(0,G.cash-sc(40000));}
+    },
+    partial:{
+      title:'Significant hit. Others held.',
+      body:'The major client leaving hurt. But at least one other stream continued. The wound was real, but the patient survived.',
+      why:'Some diversification meant the damage was partial, not fatal.',
+      damage:function(G){G.cash=Math.max(0,G.cash-sc(20000));}
+    },
+    prepared:{
+      title:'Diversification absorbed it completely.',
+      body:'Four income streams. Three asset buckets. When one source contracted, the others continued without interruption. The client walked — your income did not.',
+      why:'True diversification across multiple streams and buckets made this a non-event.',
+      damage:function(){}
+    }
+  },
+
+  'Market correction':{
+    check:function(G){
+      var hasDiversified=G.assets.filter(function(a){return !a.newThisMonth;}).length>=2;
+      var hasLoan=G.loanAmount>0;
+      var highDiscipline=G.disciplineScore>=4;
+      if(hasDiversified&&highDiscipline&&!hasLoan)return 'prepared';
+      if(hasDiversified||highDiscipline)return 'partial';
+      return 'unprepared';
+    },
+    unprepared:{
+      title:'Fully exposed to the correction.',
+      body:'Concentrated position with active debt. The correction amplified every vulnerability. Leveraged positions in falling markets are how fortunes are lost.',
+      why:'Single asset type and active loan magnified the downside.',
+      damage:function(G){G.cash=Math.max(0,G.cash-sc(20000));if(G.loanAmount>0)G.cash=Math.floor(G.cash*0.85);}
+    },
+    partial:{
+      title:'Dipped but recovered.',
+      body:'Some diversification softened the blow. The correction was felt but not devastating. A reminder that markets always move in both directions.',
+      why:'Partial diversification or discipline provided a buffer against the full impact.',
+      damage:function(G){G.cash=Math.max(0,G.cash-sc(8000));}
+    },
+    prepared:{
+      title:'Bought the dip.',
+      body:'Diversified portfolio. No debt. High discipline. While others were selling in panic, your position was stable enough to consider buying more. The correction was a gift.',
+      why:'Discipline and diversification turned a correction into a buying opportunity.',
+      damage:function(G){G.cash+=sc(10000);}
+    }
+  },
+
+  'Property damage':{
+    check:function(G){
+      var cashRatio=G.cash/Math.max(1,totalExp());
+      var hasManager=G.hasManager;
+      if(hasManager&&cashRatio>=5)return 'prepared';
+      if(hasManager||cashRatio>=3)return 'partial';
+      return 'unprepared';
+    },
+    unprepared:{
+      title:'Emergency repair. No buffer. No manager.',
+      body:'The damage was significant and the repair bill arrived without warning. No cash reserve meant the repair came directly from your operating funds.',
+      why:'No cash buffer and no manager meant you absorbed the full cost with no protection.',
+      damage:function(G){G.cash=Math.max(0,G.cash-sc(30000));}
+    },
+    partial:{
+      title:'Covered — just.',
+      body:'Either your cash reserve absorbed it or your manager handled the contractor. The repair was expensive but the damage to your finances was manageable.',
+      why:'One layer of protection held.',
+      damage:function(G){G.cash=Math.max(0,G.cash-sc(15000));}
+    },
+    prepared:{
+      title:'Manager handled it. Buffer covered it.',
+      body:'Your manager identified the problem, sourced the contractor, and oversaw the repair. Your cash reserve covered the cost without touching your investment capital.',
+      why:'Manager plus strong cash reserves turned an emergency into a managed expense.',
+      damage:function(G){G.cash=Math.max(0,G.cash-sc(5000));}
+    }
+  }
+};
+
+/* ─── LEGEND EVENTS ─── */
+/* Rare narrative moments — fire once per game after month 8, preceding the regular event */
+var LEGEND_EVENTS=[
+  {
+    id:'leg_patience',
+    title:'The Patience Lesson',
+    body:'A mentor sits across from you. He has built more wealth than most countries. He says one thing: "The stock market is a device for transferring money from the impatient to the patient." He pauses. "Which one are you right now?"',
+    lesson:'Wealth is not built in a month. It is built in the decisions you make every month for years.',
+    effect:function(G){G.disciplineScore+=2;},
+    effectLabel:'+2 discipline'
+  },
+  {
+    id:'leg_first_passive',
+    title:'The First Passive Cheque',
+    body:'It arrived while you were asleep. A deposit — not from your work, not from your time, not from your presence. From a system you built months ago and then forgot about. You stared at the notification for a long time.',
+    lesson:'The first unit of passive income is worth more than the thousandth. It is proof of a different life.',
+    effect:function(G){G.disciplineScore+=1;G.cash+=sc(5000);},
+    effectLabel:'+1 discipline, small passive bonus'
+  },
+  {
+    id:'leg_burn_boats',
+    title:'Burn the Boats',
+    body:'You are offered a safe path back. A former employer calls. The salary is higher than before. The role is prestigious. Your passive income is real but still fragile. This is the moment every builder faces: the retreat is available. Will you take it?',
+    lesson:'Safety and freedom are not the same thing. One is an illusion — the question is which one you are choosing.',
+    effect:function(G){G.disciplineScore+=3;},
+    effectLabel:'+3 discipline'
+  },
+  {
+    id:'leg_compound_letter',
+    title:'The Letter from Year Ten',
+    body:'You write a letter to yourself — ten years from now. You describe what you are building. The assets. The systems. The time that will be yours. You fold it. You put it away. You go back to work.',
+    lesson:'Clarity of future vision is the most powerful motivator available. Most people never write the letter.',
+    effect:function(G){G.disciplineScore+=2;G.reputation=Math.min(10,G.reputation+1);},
+    effectLabel:'+2 discipline, +1 reputation'
+  },
+  {
+    id:'leg_warning',
+    title:'The Warning',
+    body:'Your most trusted mentor calls. He has watched you accumulate. He says: "The first million is the hardest. The second destroys more people than the first. You are about to find out which kind of person you are."',
+    lesson:'Wealth does not reveal character. It amplifies it.',
+    effect:function(G){G.disciplineScore+=1;},
+    effectLabel:'+1 discipline'
+  },
+  {
+    id:'leg_optional',
+    title:'The Day You Became Optional',
+    body:'The month closed. Expenses paid. Income collected. Deals reviewed. You were at the beach. You did not receive a single call. Your operation ran — completely — without your physical presence for the first time.',
+    lesson:'The goal was never to be busy. The goal was to become optional.',
+    effect:function(G){G.disciplineScore+=2;G.timeUsed=Math.max(0,G.timeUsed-1);},
+    effectLabel:'+2 discipline, -1 time used permanently'
+  }
+];
+
+/* ─── DEALMAKER PASSIVE INCOME DEALS ─── */
+/* Available in the Buy screen exclusively for the Dealmaker profile */
+var DEALMAKER_PASSIVE_DEALS=[
+  {
+    id:'deal_retainer',
+    name:'Ongoing retainer contract',
+    bucket:'cf',
+    cost:0,
+    income:18000,
+    expense:2000,
+    time:2,
+    type:'passive',
+    repReq:4,
+    repeatable:true,
+    sellVal:function(a){return Math.round(sc(18000)*12*(a.monthsOwned||1)*0.5);},
+    desc:'Convert your best client relationship into a monthly retainer. They pay for access — not outputs. Passive income from your reputation.',
+    condition:function(G){return G.dealsDone>=3&&G.reputation>=4;}
+  },
+  {
+    id:'deal_equity_stake',
+    name:'Equity stake in closed deal',
+    bucket:'eq',
+    cost:0,
+    income:12000,
+    expense:500,
+    time:1,
+    type:'business',
+    repReq:6,
+    repeatable:true,
+    sellVal:function(a){return Math.round(sc(12000)*18*(a.monthsOwned||1)*0.4);},
+    desc:'Instead of taking a fee, take equity. The business you helped build now pays you every month. Risk taken at the deal table — income collected forever.',
+    condition:function(G){return G.dealsDone>=6&&G.reputation>=6;}
+  }
+];
