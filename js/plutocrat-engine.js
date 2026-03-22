@@ -1404,9 +1404,9 @@ window.PG={
   executeDeal:function(id){
     var deal=DEALS.find(function(d){return d.id===id;});if(!deal)return;
     if(G.reputation<deal.repReq||freeTime()<deal.time||!dealPrereqMet(deal))return;
-    G.timeUsed=Math.min(24,G.timeUsed+deal.time);
     var success=Math.random()<deal.rate;
     if(success){
+      G.timeUsed=Math.min(24,G.timeUsed+deal.time);
       var earn=sc(deal.min)+Math.floor(Math.random()*sc(deal.max-deal.min));
       G.cash+=earn;G.reputation=Math.min(10,G.reputation+1);G.dealsDone++;
       if(!G.dealsDoneByCategory[deal.cat])G.dealsDoneByCategory[deal.cat]=0;
@@ -1416,6 +1416,7 @@ window.PG={
       showModal('Deal closed',deal.name+'<br><br><span style="color:var(--green);font-size:20px;font-weight:600">+'+fmt(earn)+'</span><br><span style="font-size:11px;color:var(--text3)">Reputation: '+G.reputation+'/10 &nbsp;·&nbsp; Deals: '+G.dealsDone+'</span>',
         [{label:'Continue',cls:'btn-gold',fn:'PG.closeModal();PG.goGame();'}]);
     } else {
+      G.timeUsed=Math.min(24,G.timeUsed+deal.time);
       G.reputation=Math.max(0,G.reputation-1);
       addLog('Deal failed: '+deal.name+'. Rep: '+G.reputation+'/10.');
       showModal('Deal failed',deal.name+'<br><br><span style="color:var(--red);font-size:13px">Reputation dropped to '+G.reputation+'/10</span><br><span style="font-size:11px;color:var(--text3)">No money lost. Only reputation.</span>',
@@ -1423,6 +1424,7 @@ window.PG={
     }
   },
 
+  
   /* Month flow */
   passBlocked:function(){
     var mi=!allIncomeDone();var me=!allMandatoryExpDone();
