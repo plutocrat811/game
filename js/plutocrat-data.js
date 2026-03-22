@@ -980,7 +980,7 @@ var BLACK_SWAN_EVENTS=[
 var EVENT_RESPONSES={
   'Rental vacancy':{
     check:function(G){
-      var cashRatio=G.cash/Math.max(1,totalExp(G));
+      var cashRatio=G.cash/Math.max(1,totalExp());
       var hasManager=G.hasManager;
       if(hasManager||cashRatio>=6)return 'prepared';
       if(cashRatio>=3)return 'partial';
@@ -1035,7 +1035,7 @@ var EVENT_RESPONSES={
   },
   'Health crisis':{
     check:function(G){
-      var np=netPassive(G);var exp=totalExp(G);
+      var np=netPassive();var exp=totalExp();
       var hasManager=G.hasManager;
       if(np>=exp&&hasManager)return 'prepared';
       if(np>=exp||hasManager)return 'partial';
