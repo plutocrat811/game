@@ -1461,7 +1461,43 @@ dismissTutorial:function(){G.tutorialDismissed=true;render();},
   executeDeal:function(id){
     var deal=DEALS.find(function(d){return d.id===id;});if(!deal)return;
     if(G.reputation<deal.repReq||freeTime()<deal.time||!dealPrereqMet(deal))return;
-    var success=Math.random()<deal.rate;
+
+    /* Calculate success chance with player contributions */
+    var repBonus=Math.min(0.15,(G.reputation/10)*0.15);
+    var discBonus=Math.min(0.10,(G.disciplineScore/10)*0.10);
+    var catExp=G.dealsDoneByCategory[deal.cat]||0;
+    var catBonus=Math.min(0.10,(catExp/5)*0.10);
+    var finalRate=Math.min(0.95,deal.rate+repBonus+discBonus+catBonus);
+    var success=Math.random()<finalRate;
+
+    /* Build story lines for each component */
+    var repStory=G.reputation>=7
+      ?'Your reputation preceded you — the client had heard your name before you walked in.'
+      :G.reputation>=4
+      ?'Your reputation is growing but you are still building trust in this space.'
+      :'Your name is not yet known in this room. You are starting from scratch.';
+    var discStory=G.disciplineScore>=7
+      ?'Your disciplined approach meant every detail was prepared and nothing was left to chance.'
+      :G.disciplineScore>=3
+      ?'Your preparation was reasonable but some details were missing — the other party noticed.'
+      :'Your preparation was inconsistent. The other party sensed you were not fully ready.';
+    var catStory=catExp>=5
+      ?'You have closed enough '+deal.cat+' deals to know exactly where the traps are — that experience showed.'
+      :catExp>=2
+      ?'You have some '+deal.cat+' experience but this territory is still partly unfamiliar.'
+      :'This was unfamiliar territory — you have not closed enough '+deal.cat+' deals to know the landscape yet.';
+
+    var storyLine='<div style="font-size:12px;color:var(--text2);line-height:1.9;margin:12px 0;font-style:italic;text-align:left">'
+      +'"'+repStory+' '+discStory+' '+catStory+'"'
+      +'</div>';
+    var numbersLine='<div style="font-size:10px;color:var(--text3);margin-top:8px;text-align:left">'
+      +'Base: '+Math.round(deal.rate*100)+'%'
+      +' &nbsp;·&nbsp; Rep: +'+Math.round(repBonus*100)+'%'
+      +' &nbsp;·&nbsp; Discipline: +'+Math.round(discBonus*100)+'%'
+      +' &nbsp;·&nbsp; Experience: +'+Math.round(catBonus*100)+'%'
+      +'<br><span style="color:var(--gold)">Final chance: '+Math.round(finalRate*100)+'%</span>'
+      +'</div>';
+
     if(success){
       G.timeUsed=Math.min(24,G.timeUsed+deal.time);
       var earn=sc(deal.min)+Math.floor(Math.random()*sc(deal.max-deal.min));
@@ -1469,18 +1505,33 @@ dismissTutorial:function(){G.tutorialDismissed=true;render();},
       if(!G.dealsDoneByCategory[deal.cat])G.dealsDoneByCategory[deal.cat]=0;
       G.dealsDoneByCategory[deal.cat]++;
       G.dealsDoneById.push(deal.id);
-      addLog('Deal: '+deal.name+'. +'+fmt(earn)+'. Rep: '+G.reputation+'/10.');
-      showModal('Deal closed',deal.name+'<br><br><span style="color:var(--green);font-size:20px;font-weight:600">+'+fmt(earn)+'</span><br><span style="font-size:11px;color:var(--text3)">Reputation: '+G.reputation+'/10 &nbsp;·&nbsp; Deals: '+G.dealsDone+'</span>',
+      addLog('Deal: '+deal.name+'. +'+fmt(earn)+'. Rep: '+G.reputation+'/10. Final chance was '+Math.round(finalRate*100)+'%.');
+      showModal('Deal closed',
+        deal.name+'<br><br>'
+        +'<span style="color:var(--green);font-size:20px;font-weight:600">+'+fmt(earn)+'</span>'
+        +storyLine
+        +numbersLine
+        +'<br><span style="font-size:11px;color:var(--text3)">Reputation: '+G.reputation+'/10 &nbsp;·&nbsp; Deals: '+G.dealsDone+'</span>',
         [{label:'Continue',cls:'btn-gold',fn:'PG.closeModal();PG.goGame();'}]);
     } else {
       G.timeUsed=Math.min(24,G.timeUsed+deal.time);
       G.reputation=Math.max(0,G.reputation-1);
-      addLog('Deal failed: '+deal.name+'. Rep: '+G.reputation+'/10.');
-      showModal('Deal failed',deal.name+'<br><br><span style="color:var(--red);font-size:13px">Reputation dropped to '+G.reputation+'/10</span><br><span style="font-size:11px;color:var(--text3)">No money lost. Only reputation.</span>',
+      addLog('Deal failed: '+deal.name+'. Rep: '+G.reputation+'/10. Final chance was '+Math.round(finalRate*100)+'%.');
+      showModal('Deal failed',
+        deal.name+'<br><br>'
+        +'<span style="color:var(--red);font-size:13px">Reputation dropped to '+G.reputation+'/10</span>'
+        +storyLine
+        +'<div style="font-size:10px;color:var(--text3);margin-top:8px;text-align:left">'
+        +'Base: '+Math.round(deal.rate*100)+'%'
+        +' &nbsp;·&nbsp; Rep: +'+Math.round(repBonus*100)+'%'
+        +' &nbsp;·&nbsp; Discipline: +'+Math.round(discBonus*100)+'%'
+        +' &nbsp;·&nbsp; Experience: +'+Math.round(catBonus*100)+'%'
+        +'<br><span style="color:var(--red)">Final chance: '+Math.round(finalRate*100)+'% — unlucky this time</span>'
+        +'</div>'
+        +'<br><span style="font-size:11px;color:var(--text3)">No money lost. Only reputation.</span>',
         [{label:'Accept',cls:'btn-ghost',fn:'PG.closeModal();PG.goGame();'}]);
     }
   },
-
   
   /* Month flow */
   passBlocked:function(){
