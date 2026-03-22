@@ -371,19 +371,24 @@ function saveGame(){
     localStorage.setItem(SAVE_KEY,JSON.stringify(saveable));
   }catch(e){}
 }
-  
-function loadGame(){
+ function loadGame(){
   try{
     var data=localStorage.getItem(SAVE_KEY);
     if(!data)return false;
     var saved=JSON.parse(data);
+    /* Must have a valid profile and player name to be a real save */
+    if(!saved.profile||!saved.playerName)return false;
     /* Don't restore mid-event or mid-survival screens — return to game board */
     var safeScreens=['game','collect','pay_expenses','buy','deals','borrow','endmonth','win','bankruptcy'];
     if(safeScreens.indexOf(saved.screen)===-1)saved.screen='game';
     Object.assign(G,saved);
     recalc();
     return true;
-  }catch(e){return false;}
+  }catch(e){
+    /* Corrupt save — clear it and start fresh */
+    clearSave();
+    return false;
+  }
 }
 function clearSave(){
   try{localStorage.removeItem(SAVE_KEY);}catch(e){}
