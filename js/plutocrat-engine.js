@@ -65,11 +65,11 @@ var G={
   blackSwanDrawnThisYear:false,blackSwanExpenseSpike:0,
   consolidationPhase:false,consecutivePassiveCoverageMonths:0,inflationFactor:1,
   /* v11 additions */
-  managerMonthlySalary:0,    /* mandatory monthly expense when manager hired */
-  scenariosFired:[],         /* ids of scenarios already shown */
-  pendingScenario:null,      /* scenario object waiting to be shown */
-  survivalStep:0,            /* 0=none 1=liquidate 2=mortgage 3=bankrupt */
-  bankruptcyLog:[]           /* copy of log at bankruptcy for display */
+  managerMonthlySalary:0,
+  scenariosFired:[],
+  pendingScenario:null,
+  survivalStep:0,
+  bankruptcyLog:[]
 };
 
 /* ─── HELPERS ─── */
@@ -141,13 +141,11 @@ function drawBlackSwan(){
 
 /* ─── SCENARIO CHECK ─── */
 function checkScenario(){
-  /* Returns first eligible scenario not yet fired, or null */
   for(var i=0;i<DEAL_SCENARIOS.length;i++){
     var sc_obj=DEAL_SCENARIOS[i];
     if(G.scenariosFired.indexOf(sc_obj.id)>-1)continue;
     if(G.month<(sc_obj.minMonth||1))continue;
     if(sc_obj.profiles.indexOf('all')===-1&&sc_obj.profiles.indexOf(G.profile)===-1)continue;
-    /* Fire at most one per 3 months and only when player has some assets or cash stake */
     var lastFired=G.scenariosFired.length;
     if(lastFired>0&&G.monthsPlayed-G.lastScenarioMonth<3)continue;
     if(G.cash<sc(20000)&&G.assets.length===0)continue;
@@ -157,7 +155,6 @@ function checkScenario(){
 }
 
 /* ─── SETTLE MONTH — sole cash movement engine ─── */
-/* Manager marks items done only. ALL cash movement here. */
 function settleMonth(){
   recalc();
   var collectedIncome=0;
@@ -183,7 +180,6 @@ function settleMonth(){
   var totalTax=salaryTaxAmt+passiveTaxAmt;
   var net=collectedIncome+seBonus-paidExp-totalTax;
 
-  /* FIX: allow cash to go negative so checkCashShortage fires correctly */
   G.cash=G.cash+net;
 
   G.monthsPlayed++;
@@ -227,11 +223,9 @@ function settleMonth(){
 }
 
 /* ─── CASH SHORTAGE CHECK ─── */
-/* Returns true if cash shortage detected after settle. Steps through survival sequence. */
 function checkCashShortage(){
   var exp=totalExp();
   if(G.cash<0||(G.cash===0&&exp>0)){
-    /* Find cheapest non-mortgaged sellable asset */
     var sellable=G.assets.filter(function(a){
       return !a.newThisMonth&&a.type!=='delegation'&&!a.mortgage;
     });
@@ -240,7 +234,6 @@ function checkCashShortage(){
       G.survivalStep=1;
       G.survivalAsset=sellable[0];
     } else {
-      /* Check for mortgageable assets */
       var mortgageable=G.assets.filter(function(a){
         return !a.newThisMonth&&a.type==='real estate'&&!a.mortgage;
       });
@@ -320,7 +313,6 @@ function buildMonthExpenses(){
   G.assets.forEach(function(a,i){
     if(!a.newThisMonth&&a.expense>0)
       list.push({id:'asset_exp_'+i,label:a.name+' — maintenance / fees',amount:adj(a.expense),type:'asset expense',locked:false,mandatory:false,done:false,skippedMonths:0});
-    /* Mortgage payment as mandatory expense */
     if(!a.newThisMonth&&a.mortgage){
       list.push({id:'mortgage_'+i,label:a.name+' — mortgage payment',amount:adj(a.mortgage.monthlyPayment),type:'mortgage',locked:true,mandatory:true,done:false,skippedMonths:0,isMortgage:true,assetIdx:i});
     }
@@ -342,7 +334,6 @@ function allMandatoryExpDone(){
 function canPass(){return allIncomeDone()&&allMandatoryExpDone();}
 
 /* ─── MANAGER PAY WITH PRIORITY ─── */
-/* Manager pays mandatory first, then optional, stops if cash exhausted */
 function managerAutoPayExpenses(){
   if(!G.monthExpenses)G.monthExpenses=buildMonthExpenses();
   var mandatory=G.monthExpenses.filter(function(i){return i.mandatory&&!i.done;});
@@ -355,12 +346,10 @@ function managerAutoPayExpenses(){
       item.done=true;
       item.cashTaken=true;
     }
-    /* If mandatory and cannot afford — leave undone. settleMonth handles carry. */
   });
 }
 
 /* ─── SAVE / LOAD ─── */
-  
 var SAVE_KEY='plutocrat_v11_save';
 function saveGame(){
   try{
@@ -371,21 +360,18 @@ function saveGame(){
     localStorage.setItem(SAVE_KEY,JSON.stringify(saveable));
   }catch(e){}
 }
- function loadGame(){
+function loadGame(){
   try{
     var data=localStorage.getItem(SAVE_KEY);
     if(!data)return false;
     var saved=JSON.parse(data);
-    /* Must have a valid profile and player name to be a real save */
     if(!saved.profile||!saved.playerName)return false;
-    /* Don't restore mid-event or mid-survival screens — return to game board */
     var safeScreens=['game','collect','pay_expenses','buy','deals','borrow','endmonth','win','bankruptcy'];
     if(safeScreens.indexOf(saved.screen)===-1)saved.screen='game';
     Object.assign(G,saved);
     recalc();
     return true;
   }catch(e){
-    /* Corrupt save — clear it and start fresh */
     clearSave();
     return false;
   }
@@ -417,6 +403,7 @@ function render(){
     survival:rSurvival,bankruptcy:rBankruptcy
   };
   if(map[G.screen])map[G.screen](s);
+  /* Auto-save after every render except setup screens */
   var setupScreens2=['title','setup_loc','setup_name','setup_profile','setup_housing','setup_grocery'];
   if(setupScreens2.indexOf(G.screen)===-1)saveGame();
 }
@@ -686,10 +673,8 @@ function rGame(s){
         )
         +'<div class="atime '+(a.time===0?'f':'c')+'">'+( a.time===0?'0 time':'−'+a.time+' units')+'</div>'
         +(a.newThisMonth?'':'<span class="asell" onclick="PG.sellAsset('+i+')">Sell</span>')
-        /* Mortgage button — shown on real estate not new, not already mortgaged */
         +((!a.newThisMonth&&a.type==='real estate'&&!a.mortgage)
           ?'<span class="amortgage" onclick="PG.mortgageAsset('+i+')">Mortgage</span>':'')
-        /* Repay button when mortgaged */
         +((!a.newThisMonth&&a.mortgage)
           ?'<span class="arepay" onclick="PG.repayMortgage('+i+')">Repay</span>':'')
         +'</div></div>';
@@ -844,7 +829,6 @@ function rBuy(s){
       if(G.delegDiscount&&item.type==='delegation')cost=Math.floor(cost*0.5);
       if(G.opmDiscount&&item.type!=='delegation')cost=Math.floor(cost*0.75);
 
-      /* Manager: 0 upfront, recruitment fee instead */
       var displayCost=isMgr?sc(5000):sc(cost);
       var mgrSalary=isMgr?sc(12000):0;
       var sopMaint=item.id==='build_sop'?sc(2000):0;
@@ -928,7 +912,7 @@ function rDeals(s){
         +'<span class="deal-tag" style="background:rgba(154,106,204,.12);color:var(--purple);border:1px solid rgba(154,106,204,.25)">Rep: '+deal.repReq+'</span>'
         +'<span class="deal-tag" style="background:rgba(74,138,204,.12);color:var(--blue);border:1px solid rgba(74,138,204,.25)">Time: '+deal.time+'</span>'
         +'<span class="deal-tag" style="background:rgba(58,170,106,.12);color:var(--green);border:1px solid rgba(58,170,106,.25)">'+fmt(sc(deal.min))+'–'+fmt(sc(deal.max))+'</span>'
-        +'<span class="deal-tag" style="background:rgba(201,168,76,.08);color:var(--gold);border:1px solid var(--border-gold)">'+Math.round(deal.rate*100)+'% success</span>'
+        +'<span class="deal-tag" style="background:rgba(201,168,76,.08);color:var(--gold);border:1px solid var(--border-gold)">'+Math.round(deal.rate*100)+'% base</span>'
         +(deal.prereq&&deal.prereq.length?'<span class="deal-tag" style="background:rgba(204,140,44,.1);color:var(--orange);border:1px solid rgba(204,140,44,.3)">pipeline</span>':'')
         +'</div>'
         +'<div style="font-size:11px;color:var(--text2);line-height:1.7">'+deal.desc+'</div>'
@@ -955,20 +939,19 @@ function rEvent(s){
     +'<div class="eeffect '+ecls+'">'+e.effect+'</div>'
     +'</div>'
     +'<div class="brow"><button class="btn btn-gold" onclick="PG.acceptEvent()">Accept outcome</button></div>';
-  /* Visual flash for dramatic events */
   if(isBlackSwan){
     var f=document.createElement('div');
     f.className='event-flash flash-red';
     document.body.appendChild(f);
     setTimeout(function(){if(f.parentNode)f.parentNode.removeChild(f);},600);
   } else if(isOpportunity){
-    var f=document.createElement('div');
-    f.className='event-flash flash-green';
-    document.body.appendChild(f);
-    setTimeout(function(){if(f.parentNode)f.parentNode.removeChild(f);},400);
+    var f2=document.createElement('div');
+    f2.className='event-flash flash-green';
+    document.body.appendChild(f2);
+    setTimeout(function(){if(f2.parentNode)f2.parentNode.removeChild(f2);},400);
   }
 }
-  
+
 /* ─── SMART RESPONSE SCREEN ─── */
 function rSmartResponse(s){
   var e=G.eventCard;
@@ -1188,7 +1171,6 @@ function rBankruptcy(s){
 function rWin(s){
   recalc();var ft=freeTime();var win=checkWin()||WINS[0];var exp=totalExp();
   var np=netPassive();
-  /* Asset breakdown */
   var assetBreakdown='';
   G.assets.forEach(function(a){
     var net=(a.income||0)-(a.expense||0);
@@ -1197,7 +1179,6 @@ function rWin(s){
       +'<span style="color:'+(net>0?'var(--green)':'var(--red)')+'">'+fmtS(net)+'/mo</span>'
       +'</div>';
   });
-  /* Category breakdown for dealmaker */
   var dealBreakdown='';
   if(G.profile==='dealmaker'&&G.dealsDone>0){
     dealBreakdown='<div style="margin-bottom:6px;font-size:10px;color:var(--text3);letter-spacing:1px;text-transform:uppercase">Deals by category</div>';
@@ -1289,7 +1270,7 @@ window.PG={
   /* Board navigation */
   goGame:function(){G.screen='game';render();},
   toggleLog:function(){G.showFullLog=!G.showFullLog;render();},
-dismissTutorial:function(){G.tutorialDismissed=true;render();},
+  dismissTutorial:function(){G.tutorialDismissed=true;render();},
   goBorrow:function(){G.screen='borrow';render();},
   goBuy:function(){G.screen='buy';render();},
   goDeals:function(){
@@ -1438,7 +1419,6 @@ dismissTutorial:function(){G.tutorialDismissed=true;render();},
     G.hasManager=false;G.timeUsed=Math.min(24,G.timeUsed+3);
     addLog('Manager fired. Monthly salary saved: '+fmt(G.managerMonthlySalary)+'/mo.');
     G.managerMonthlySalary=0;
-    /* Remove manager salary from current month expenses if present */
     if(G.monthExpenses){G.monthExpenses=G.monthExpenses.filter(function(e){return e.id!=='mgr_salary';});}
     render();
   },
@@ -1459,15 +1439,13 @@ dismissTutorial:function(){G.tutorialDismissed=true;render();},
     var exitVal=ldef&&ldef.exitValue?Math.round(l.cost*ldef.exitValue):0;
     if(exitVal>0)G.cash+=exitVal;
     G.disciplineScore+=2;
-    addLog('Dropped habit: '+l.name+'. +2 discipline. '+( exitVal>0?'Recovered '+fmt(exitVal)+'.':'Zero exit value.')+'  "You cut the expense. But the urge will return."');
+    addLog('Dropped habit: '+l.name+'. +2 discipline. '+(exitVal>0?'Recovered '+fmt(exitVal)+'.':'Zero exit value.')+' "You cut the expense. But the urge will return."');
     G.liabilities.splice(idx,1);
-    /* Remove from current month expenses if present */
     if(G.monthExpenses){G.monthExpenses=G.monthExpenses.filter(function(e){return e.id!=='liab_'+l.id;});}
     render();
   },
 
   /* Deals */
-
   executeDeal:function(id){
     var deal=DEALS.find(function(d){return d.id===id;});if(!deal)return;
     if(G.reputation<deal.repReq||freeTime()<deal.time||!dealPrereqMet(deal))return;
@@ -1542,7 +1520,7 @@ dismissTutorial:function(){G.tutorialDismissed=true;render();},
         [{label:'Accept',cls:'btn-ghost',fn:'PG.closeModal();PG.goGame();'}]);
     }
   },
-  
+
   /* Month flow */
   passBlocked:function(){
     var mi=!allIncomeDone();var me=!allMandatoryExpDone();
@@ -1557,20 +1535,17 @@ dismissTutorial:function(){G.tutorialDismissed=true;render();},
   },
   passMonth:function(){
     if(!canPass()){PG.passBlocked();return;}
-    /* Check for scenario trigger */
     var sc_check=checkScenario();
     if(sc_check){
       G.pendingScenario=sc_check;
       G.screen='scenario';render();return;
     }
-    /* Draw event card */
     if(G.month===6&&!G.blackSwanDrawnThisYear){
       G.blackSwanDrawnThisYear=true;
       G.eventCard=drawBlackSwan();
     } else {
       G.eventCard=drawCard();
     }
-    /* Check for smart response */
     var hasSmartResp=G.eventCard&&EVENT_RESPONSES[G.eventCard.title];
     G.screen=hasSmartResp?'smart_response':'event';
     render();
@@ -1579,7 +1554,6 @@ dismissTutorial:function(){G.tutorialDismissed=true;render();},
     if(G.eventCard&&G.eventCard.fn)G.eventCard.fn(G);
     G.delegDiscount=false;G.opmDiscount=false;
     G._lastSettleResult=settleMonth();
-    /* FIX: check for cash shortage after settle — route to survival if needed */
     if(checkCashShortage()){G.screen='survival';render();return;}
     G.screen='endmonth';
     render();
@@ -1593,7 +1567,6 @@ dismissTutorial:function(){G.tutorialDismissed=true;render();},
     }
     G.delegDiscount=false;G.opmDiscount=false;
     G._lastSettleResult=settleMonth();
-    /* FIX: check for cash shortage after settle — route to survival if needed */
     if(checkCashShortage()){G.screen='survival';render();return;}
     G.screen='endmonth';
     render();
@@ -1612,7 +1585,6 @@ dismissTutorial:function(){G.tutorialDismissed=true;render();},
   },
   finishScenario:function(){
     G.pendingScenario=null;G.pendingOutcome=null;
-    /* Now draw regular event */
     if(G.month===6&&!G.blackSwanDrawnThisYear){
       G.blackSwanDrawnThisYear=true;
       G.eventCard=drawBlackSwan();
@@ -1639,7 +1611,7 @@ dismissTutorial:function(){G.tutorialDismissed=true;render();},
     if(idx>-1){
       var mv=assetMarketValue(a);
       var principal=Math.floor(mv*0.6);
-      var monthly=Math.round(principal*0.18/12); /* 18% emergency rate */
+      var monthly=Math.round(principal*0.18/12);
       a.mortgage={principal:principal,monthlyPayment:monthly,balance:principal,emergency:true};
       G.cash+=principal;
       addLog('EMERGENCY MORTGAGE: '+a.name+'. Received '+fmt(principal)+'. Rate: 18% p.a. "You borrowed against your own asset to survive the month."');
@@ -1708,11 +1680,9 @@ dismissTutorial:function(){G.tutorialDismissed=true;render();},
     if(G.month>=12){G.month=1;G.year++;G.blackSwanDrawnThisYear=false;}
     else{G.month++;}
 
-    /* Mortgage foreclosure check */
     G.assets.forEach(function(a){
       if(!a.newThisMonth&&a.mortgage){
         if(G.cash<a.mortgage.monthlyPayment){
-          /* Foreclosure — force sell at 80% */
           var def=ASSET_DEFS.find(function(d){return d.id===a.id||a.id.indexOf(d.id)===0;});
           var fv=def?Math.floor(def.sellVal(a)*0.8):sc(50000);
           var remaining=Math.max(0,fv-a.mortgage.balance);
@@ -1724,7 +1694,6 @@ dismissTutorial:function(){G.tutorialDismissed=true;render();},
     });
     G.assets=G.assets.filter(function(a){return !a._foreclosed;});
 
-    /* Age assets, merge stacks */
     var toMerge=[];var toKeep=[];
     G.assets.forEach(function(a){
       if(a.newThisMonth){
@@ -1765,7 +1734,8 @@ dismissTutorial:function(){G.tutorialDismissed=true;render();},
       blackSwanDrawnThisYear:false,blackSwanExpenseSpike:0,
       consolidationPhase:false,consecutivePassiveCoverageMonths:0,inflationFactor:1,
       hasManager:false,managerMonthlySalary:0,
-      scenariosFired:[],pendingScenario:null,survivalStep:0,bankruptcyLog:[],lastScenarioMonth:0
+      scenariosFired:[],pendingScenario:null,survivalStep:0,bankruptcyLog:[],lastScenarioMonth:0,
+      tutorialDismissed:false,showFullLog:false
     });
     render();
   }
