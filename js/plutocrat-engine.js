@@ -717,7 +717,7 @@ function rGame(s){
   h+='<div class="sec">Actions</div><div class="brow">'
     +'<button class="btn btn-green" onclick="PG.goCollect()">Collect income'+(incDone?' ✓':'')+'</button>'
     +'<button class="btn btn-red" onclick="PG.goPayExp()">Pay expenses'+(expDone?' ✓':'')+(overdueCount>0?' ('+overdueCount+' overdue)':'')+'</button>'
-    +'<button class="btn btn-gold'+(buyWarning?' btn-dim':'')+'" onclick="PG.goBuy()">Buy assets</button>'
+    +'<button class="btn btn-gold" onclick="PG.goBuy()" '+(buyWarning?'style="opacity:0.6;border-style:dashed"':'')+'>Buy assets'+(buyWarning?' ⚠':'')+'</button>'
     +(np>0?'<button class="btn btn-blue" onclick="PG.goBorrow()">Borrow capital</button>':'')
     +(G.profile==='dealmaker'
       ?(dealLocked
