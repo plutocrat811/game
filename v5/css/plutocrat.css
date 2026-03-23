@@ -1,0 +1,1008 @@
+/* PLUTOCRAT v11 — Billionaire by 20 */
+/* Dark luxury design — black background, gold accents */
+/* Cinzel: headings only | Inter: everything else */
+
+*{box-sizing:border-box;margin:0;padding:0}
+
+:root{
+  --gold:#c9a84c;
+  --gold-dark:#8a6f2e;
+  --gold-dim:rgba(201,168,76,0.15);
+  --bg:#06060a;
+  --bg2:#0d0d14;
+  --bg3:#12121c;
+  --border:#1e1e2e;
+  --border-gold:rgba(201,168,76,0.3);
+  --text:#e8e4d8;
+  --text2:#9a9080;
+  --text3:#5a5448;
+  --green:#3aaa6a;
+  --red:#cc4444;
+  --blue:#4a8acc;
+  --purple:#9a6acc;
+  --orange:#cc8c2c;
+}
+
+html,body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:'Inter',sans-serif;
+  min-height:100vh;
+  font-size:14px;
+}
+
+/* ─── TOPBAR ─── */
+#topbar{
+  background:var(--bg2);
+  border-bottom:1px solid var(--border-gold);
+  padding:12px 24px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  position:sticky;
+  top:0;
+  z-index:100;
+  width:100vw;
+  left:0;
+}
+#tlogo{
+  font-family:'Cinzel',serif;
+  font-size:16px;
+  font-weight:700;
+  color:var(--gold);
+  letter-spacing:3px;
+}
+#tsub{
+  font-size:9px;
+  letter-spacing:2px;
+  color:var(--text3);
+  text-transform:uppercase;
+  margin-top:2px;
+}
+#tright{
+  font-size:11px;
+  color:var(--text3);
+  text-align:right;
+  line-height:1.6;
+}
+
+/* ─── APP CONTAINER ─── */
+#app{max-width:960px;margin:0 auto}
+#screen{padding:28px 24px;min-height:80vh}
+#modal{display:none;position:fixed;inset:0;z-index:200}
+
+/* ─── TYPOGRAPHY ─── */
+.ch{
+  font-family:'Cinzel',serif;
+  color:var(--gold);
+  letter-spacing:2px;
+}
+/* FIX 3 — .sec uses flexbox so label + toggle sit reliably on opposite ends */
+.sec{
+  font-size:9px;
+  letter-spacing:3px;
+  text-transform:uppercase;
+  color:var(--text3);
+  margin-bottom:8px;
+  padding-bottom:6px;
+  border-bottom:1px solid var(--border);
+  margin-top:4px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+
+/* ─── BUTTONS ─── */
+.btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  padding:11px 24px;
+  font-family:'Inter',sans-serif;
+  font-size:12px;
+  font-weight:500;
+  letter-spacing:1px;
+  cursor:pointer;
+  border-radius:4px;
+  transition:all 0.18s;
+  text-transform:uppercase;
+  border:1px solid;
+  background:transparent;
+  white-space:nowrap;
+}
+.btn-gold{border-color:var(--gold);color:var(--gold)}
+.btn-gold:hover{background:var(--gold);color:var(--bg)}
+.btn-green{border-color:var(--green);color:var(--green)}
+.btn-green:hover{background:var(--green);color:var(--bg)}
+.btn-red{border-color:var(--red);color:var(--red)}
+/* BUG 7 FIX — was color:#fff, now consistent with all other button hovers */
+.btn-red:hover{background:var(--red);color:var(--bg)}
+.btn-ghost{border-color:var(--border);color:var(--text2)}
+.btn-ghost:hover{border-color:var(--gold);color:var(--gold)}
+.btn-blue{border-color:var(--blue);color:var(--blue)}
+.btn-blue:hover{background:var(--blue);color:var(--bg)}
+.btn-purple{border-color:var(--purple);color:var(--purple)}
+.btn-purple:hover{background:var(--purple);color:var(--bg)}
+.btn-orange{border-color:var(--orange);color:var(--orange)}
+.btn-orange:hover{background:var(--orange);color:var(--bg)}
+.btn-dim{border-color:var(--border);color:var(--text3);cursor:not-allowed;opacity:0.4}
+.btn:disabled{opacity:0.25;pointer-events:none}
+.brow{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px;align-items:center}
+
+/* ─── INPUT ─── */
+.inp{
+  background:var(--bg3);
+  border:1px solid var(--border);
+  border-radius:6px;
+  padding:13px 16px;
+  color:var(--text);
+  font-family:'Inter',sans-serif;
+  font-size:14px;
+  outline:none;
+  transition:border 0.2s;
+  display:block;
+  width:100%;
+  max-width:320px;
+}
+.inp:focus{border-color:var(--border-gold)}
+.inp::placeholder{color:var(--text3)}
+.inp-inline{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:0;justify-content:center}
+.inp-inline .inp{flex:1;min-width:180px;max-width:320px}
+
+/* ─── HUD ─── */
+/* BUG 8 FIX — removed .hud5 (was defined but never used by engine) */
+.hud{display:grid;gap:6px;margin-bottom:14px}
+.hud4{grid-template-columns:repeat(4,1fr)}
+.hud3{grid-template-columns:repeat(3,1fr)}
+.hud2{grid-template-columns:repeat(2,1fr)}
+.hbox{
+  background:var(--bg2);
+  border:1px solid var(--border);
+  border-radius:6px;
+  padding:10px 8px;
+  text-align:center;
+  cursor:pointer;
+  transition:border-color 0.18s;
+}
+.hbox:hover{border-color:var(--border-gold)}
+.hlbl{
+  font-size:9px;
+  letter-spacing:2px;
+  text-transform:uppercase;
+  color:var(--text3);
+  margin-bottom:5px;
+}
+.hval{
+  font-size:15px;
+  color:var(--gold);
+  font-weight:600;
+  line-height:1.2;
+}
+.hval.g{color:var(--green)}
+.hval.r{color:var(--red)}
+.hval.b{color:var(--blue)}
+.hval.p{color:var(--purple)}
+.hval.o{color:var(--orange)}
+
+/* ─── CALENDAR ─── */
+.cal{
+  background:var(--bg2);
+  border:1px solid var(--border);
+  border-radius:8px;
+  padding:14px;
+  margin-bottom:14px;
+}
+.cal-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:10px;
+}
+.cal-year{font-family:'Cinzel',serif;font-size:13px;color:var(--gold)}
+.cal-months{display:grid;grid-template-columns:repeat(12,1fr);gap:4px}
+.cal-m{height:6px;border-radius:2px;background:var(--border)}
+.cal-m.done{background:var(--gold-dark)}
+.cal-m.current{background:var(--gold)}
+
+/* ─── NOTICES ─── */
+.notice{
+  border-radius:5px;
+  padding:11px 14px;
+  font-size:11px;
+  line-height:1.7;
+  margin-bottom:10px;
+}
+.ngold{background:rgba(201,168,76,.06);border:1px solid var(--border-gold);color:var(--gold)}
+.ngreen{background:rgba(58,170,106,.06);border:1px solid rgba(58,170,106,.22);color:var(--green)}
+.nred{background:rgba(204,68,68,.06);border:1px solid rgba(204,68,68,.22);color:var(--red)}
+.nblue{background:rgba(74,138,204,.06);border:1px solid rgba(74,138,204,.22);color:var(--blue)}
+.npurple{background:rgba(154,106,204,.06);border:1px solid rgba(154,106,204,.22);color:var(--purple)}
+.norange{background:rgba(204,140,44,.06);border:1px solid rgba(204,140,44,.3);color:var(--orange)}
+
+/* ─── ITEM ROWS (income / expense lists) ─── */
+.item-row{
+  background:var(--bg2);
+  border:1px solid var(--border);
+  border-radius:6px;
+  padding:13px 16px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:8px;
+  gap:10px;
+}
+.item-row.done{opacity:0.4;border-style:dashed}
+.item-row.mandatory{border-left:2px solid var(--red)}
+.item-row.overdue{border-left:2px solid var(--orange)}
+.item-label{flex:1}
+.item-name{font-size:13px;color:var(--text);font-weight:500}
+.item-sub{font-size:10px;color:var(--text3);margin-top:2px}
+.item-amt{font-size:14px;font-weight:600;white-space:nowrap;margin-right:10px}
+.item-amt.inc{color:var(--green)}
+.item-amt.exp{color:var(--red)}
+
+/* ─── SHOP GRID ─── */
+.sgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px}
+.scard{
+  background:var(--bg2);
+  border:1px solid var(--border);
+  border-radius:8px;
+  padding:14px;
+  cursor:pointer;
+  transition:all 0.18s;
+}
+.scard:hover:not(.sdim){border-color:var(--border-gold)}
+.sdim{opacity:0.3;pointer-events:none}
+.sname{font-size:12px;font-weight:600;color:var(--gold);margin-bottom:5px;line-height:1.4}
+.scost{font-size:11px;color:var(--text2);margin-bottom:2px}
+.sinc{font-size:11px;color:var(--green);margin-bottom:2px}
+.sexp{font-size:11px;color:var(--red);margin-bottom:2px}
+.snet{font-size:11px;font-weight:600;margin-bottom:4px}
+.stime{font-size:11px;margin-bottom:4px}
+.stime.f{color:var(--green)}
+.stime.c{color:var(--red)}
+.sdesc{font-size:10px;color:var(--text3);line-height:1.6}
+
+/* ─── TAGS ─── */
+.stag{
+  display:inline-block;
+  font-size:8px;
+  padding:2px 6px;
+  border-radius:2px;
+  margin-right:3px;
+  margin-bottom:3px;
+  letter-spacing:1px;
+}
+.tag-stack{background:rgba(58,170,106,.12);color:var(--green);border:1px solid rgba(58,170,106,.25)}
+.tag-del{background:rgba(74,138,204,.12);color:var(--blue);border:1px solid rgba(74,138,204,.25)}
+.tag-status{background:rgba(154,106,204,.12);color:var(--purple);border:1px solid rgba(154,106,204,.25)}
+.tag-liab{background:rgba(204,68,68,.12);color:var(--red);border:1px solid rgba(204,68,68,.25)}
+.tag-cf{background:rgba(58,170,106,.12);color:var(--green);border:1px solid rgba(58,170,106,.25)}
+.tag-ap{background:rgba(201,168,76,.1);color:var(--gold);border:1px solid var(--border-gold)}
+.tag-eq{background:rgba(74,138,204,.12);color:var(--blue);border:1px solid rgba(74,138,204,.25)}
+.tag-legend{background:rgba(201,168,76,.12);color:var(--gold);border:1px solid var(--border-gold)}
+
+/* ─── PROFILE CARDS ─── */
+.pgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px}
+.pcard{
+  background:var(--bg2);
+  border:1px solid var(--border);
+  border-radius:8px;
+  padding:18px;
+  cursor:pointer;
+  transition:all 0.2s;
+}
+.pcard:hover{border-color:var(--border-gold)}
+.pcard.active{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold-dark)}
+.pbadge{
+  display:inline-block;
+  font-size:9px;
+  letter-spacing:2px;
+  text-transform:uppercase;
+  padding:3px 8px;
+  border-radius:2px;
+  margin-bottom:10px;
+}
+.bwarn{background:rgba(204,68,68,.12);color:var(--red);border:1px solid rgba(204,68,68,.25)}
+.bgold{background:rgba(201,168,76,.1);color:var(--gold);border:1px solid var(--border-gold)}
+.bblue{background:rgba(74,138,204,.1);color:var(--blue);border:1px solid rgba(74,138,204,.25)}
+.pname{font-family:'Cinzel',serif;font-size:15px;color:var(--gold);margin-bottom:3px;letter-spacing:1px}
+.psub{font-size:9px;letter-spacing:1px;color:var(--text3);text-transform:uppercase;margin-bottom:12px}
+.pstat{font-size:12px;color:var(--text2);line-height:2}
+.pstat span{color:var(--text);font-weight:600}
+.pdesc{font-size:11px;color:var(--text3);margin-top:10px;line-height:1.7;border-top:1px solid var(--border);padding-top:10px}
+
+/* ─── CHOICE CARDS (housing / grocery) ─── */
+.choice-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+.choice-card{
+  background:var(--bg2);
+  border:1px solid var(--border);
+  border-radius:8px;
+  padding:14px;
+  cursor:pointer;
+  transition:all 0.18s;
+}
+.choice-card:hover{border-color:var(--border-gold)}
+.choice-card.active{border-color:var(--gold)}
+.choice-name{font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px}
+.choice-cost{font-size:12px;color:var(--red);margin-bottom:4px}
+.choice-desc{font-size:10px;color:var(--text3);line-height:1.5}
+.choice-perk{font-size:10px;color:var(--purple);margin-top:4px}
+
+/* ─── ASSET LIST (board) ─── */
+.alist{display:flex;flex-direction:column;gap:8px;margin-bottom:18px}
+.arow{
+  background:var(--bg2);
+  border:1px solid var(--border);
+  border-radius:6px;
+  padding:12px 16px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:10px;
+}
+.arow.new{border-color:var(--blue)}
+.arow.mortgaged{border-color:var(--orange)}
+.aname{font-size:13px;color:var(--text);font-weight:500}
+.atype{font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-top:2px}
+.aright{text-align:right;flex-shrink:0}
+.ainc{font-size:12px;color:var(--green);font-weight:600}
+.aexp{font-size:11px;color:var(--red)}
+.anet{font-size:12px;font-weight:600}
+.atime{font-size:10px;margin-top:2px}
+.atime.f{color:var(--green)}
+.atime.c{color:var(--red)}
+.asell{
+  font-size:10px;
+  color:var(--text3);
+  cursor:pointer;
+  text-decoration:underline;
+  margin-top:4px;
+  display:inline-block;
+}
+.asell:hover{color:var(--red)}
+.amortgage{
+  font-size:10px;
+  color:var(--orange);
+  cursor:pointer;
+  text-decoration:underline;
+  margin-top:4px;
+  display:inline-block;
+  margin-left:8px;
+}
+.amortgage:hover{color:var(--gold)}
+.arepay{
+  font-size:10px;
+  color:var(--green);
+  cursor:pointer;
+  text-decoration:underline;
+  margin-top:4px;
+  display:inline-block;
+  margin-left:8px;
+}
+.arepay:hover{color:var(--gold)}
+.adrop{
+  font-size:10px;
+  color:var(--text3);
+  cursor:pointer;
+  text-decoration:underline;
+  margin-top:4px;
+  display:inline-block;
+  margin-left:8px;
+}
+.adrop:hover{color:var(--green)}
+
+/* ─── ACTIVITY LOG ─── */
+/* BUG 1 FIX — base state has height cap; log-expanded removes it */
+.log{
+  background:var(--bg);
+  border:1px solid var(--border);
+  border-radius:6px;
+  padding:12px;
+  font-size:11px;
+  color:var(--text3);
+  max-height:90px;
+  overflow-y:auto;
+  line-height:2;
+  margin-bottom:16px;
+}
+.log.log-expanded{
+  max-height:none;
+}
+.logline{border-bottom:1px solid var(--border);padding:1px 0}
+.logline:last-child{color:var(--text2);border:none}
+
+/* ─── EVENT CARDS ─── */
+.ecard{
+  background:var(--bg2);
+  border:1px solid var(--border);
+  border-radius:10px;
+  padding:26px 22px;
+  text-align:center;
+  margin-bottom:18px;
+  position:relative;
+  overflow:hidden;
+}
+.ecard::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.ecard.opportunity::before{background:var(--gold)}
+.ecard.setback::before{background:var(--red)}
+.ecard.lesson::before{background:var(--blue)}
+.ecard.market::before{background:var(--purple)}
+.ecard.blackswan::before{background:var(--red)}
+.ecard.legend::before{background:var(--gold)}
+.ecard.scenario::before{background:var(--purple)}
+.etype{font-size:9px;letter-spacing:4px;text-transform:uppercase;margin-bottom:12px}
+.etype.opportunity{color:var(--gold)}
+.etype.setback{color:var(--red)}
+.etype.lesson{color:var(--blue)}
+.etype.market{color:var(--purple)}
+.etype.blackswan{color:var(--red)}
+.etype.legend{color:var(--gold)}
+.etype.scenario{color:var(--purple)}
+.etitle{font-family:'Cinzel',serif;font-size:17px;color:var(--text);margin-bottom:12px;letter-spacing:1px}
+.ebody{font-size:13px;color:var(--text2);line-height:1.9;margin-bottom:16px}
+.eeffect{display:inline-block;font-size:12px;padding:8px 16px;border-radius:4px}
+.epos{background:rgba(58,170,106,.08);color:var(--green);border:1px solid rgba(58,170,106,.25)}
+.eneg{background:rgba(204,68,68,.08);color:var(--red);border:1px solid rgba(204,68,68,.25)}
+.eneu{background:rgba(201,168,76,.08);color:var(--gold);border:1px solid var(--border-gold)}
+.epurp{background:rgba(154,106,204,.08);color:var(--purple);border:1px solid rgba(154,106,204,.25)}
+
+/* ─── SCENARIO CHOICES ─── */
+.scenario-choices{display:flex;flex-direction:column;gap:10px;margin-bottom:18px;text-align:left}
+.scenario-choice{
+  background:var(--bg3);
+  border:1px solid var(--border);
+  border-radius:8px;
+  padding:16px;
+  cursor:pointer;
+  transition:all 0.18s;
+}
+.scenario-choice:hover{border-color:var(--border-gold);background:var(--bg2)}
+.scenario-choice.selected{border-color:var(--gold)}
+.sc-label{font-size:12px;font-weight:600;color:var(--gold);margin-bottom:5px;letter-spacing:1px;text-transform:uppercase}
+.sc-desc{font-size:12px;color:var(--text2);line-height:1.7}
+.sc-hint{font-size:10px;color:var(--text3);margin-top:5px;font-style:italic}
+
+/* ─── SCENARIO OUTCOME ─── */
+.scenario-outcome{
+  background:var(--bg2);
+  border:1px solid var(--border-gold);
+  border-radius:10px;
+  padding:22px;
+  margin-bottom:18px;
+  text-align:center;
+}
+.outcome-title{font-family:'Cinzel',serif;font-size:16px;color:var(--gold);margin-bottom:10px;letter-spacing:1px}
+.outcome-body{font-size:12px;color:var(--text2);line-height:1.8;margin-bottom:14px}
+.outcome-lesson{
+  font-size:11px;
+  color:var(--text3);
+  font-style:italic;
+  line-height:1.7;
+  padding:10px 14px;
+  border-top:1px solid var(--border);
+  margin-top:10px;
+}
+.outcome-lesson em{color:var(--gold);font-style:normal}
+
+/* ─── SMART RESPONSE SYSTEM ─── */
+.response-screen{margin-bottom:18px}
+.response-header{
+  background:var(--bg2);
+  border:1px solid var(--border);
+  border-radius:10px;
+  padding:22px;
+  text-align:center;
+  margin-bottom:14px;
+}
+.response-tier{
+  font-size:9px;
+  letter-spacing:4px;
+  text-transform:uppercase;
+  margin-bottom:8px;
+}
+.response-tier.unprepared{color:var(--red)}
+.response-tier.partial{color:var(--orange)}
+.response-tier.prepared{color:var(--green)}
+.response-options{display:flex;flex-direction:column;gap:10px;margin-bottom:16px}
+.response-option{
+  background:var(--bg3);
+  border:1px solid var(--border);
+  border-radius:8px;
+  padding:16px;
+  cursor:pointer;
+  transition:all 0.18s;
+  text-align:left;
+}
+.response-option:hover{border-color:var(--border-gold)}
+.response-option.best{border-color:rgba(58,170,106,.3)}
+.ro-label{font-size:11px;font-weight:600;color:var(--text);margin-bottom:4px}
+.ro-effect{font-size:11px;margin-bottom:3px}
+.ro-why{font-size:10px;color:var(--text3);font-style:italic}
+
+/* ─── SURVIVAL SCREENS ─── */
+.survival-card{
+  background:var(--bg2);
+  border:2px solid var(--red);
+  border-radius:10px;
+  padding:24px;
+  margin-bottom:18px;
+  text-align:center;
+}
+.survival-title{font-family:'Cinzel',serif;font-size:18px;color:var(--red);margin-bottom:12px;letter-spacing:1px}
+.survival-body{font-size:13px;color:var(--text2);line-height:1.9;margin-bottom:16px}
+.survival-step{
+  font-size:9px;
+  letter-spacing:3px;
+  text-transform:uppercase;
+  color:var(--red);
+  margin-bottom:8px;
+}
+
+/* ─── BANKRUPTCY SCREEN ─── */
+.bankruptcy{text-align:center;padding:48px 20px}
+.bk-title{font-family:'Cinzel',serif;font-size:28px;color:var(--red);letter-spacing:2px;margin-bottom:16px}
+.bk-sub{font-size:12px;color:var(--text3);letter-spacing:3px;text-transform:uppercase;margin-bottom:28px}
+.bk-timeline{
+  background:var(--bg2);
+  border:1px solid rgba(204,68,68,.25);
+  border-radius:10px;
+  padding:20px;
+  max-width:560px;
+  margin:0 auto 28px;
+  text-align:left;
+}
+.bk-timeline-title{font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--red);margin-bottom:14px}
+.bk-entry{
+  font-size:11px;
+  color:var(--text3);
+  line-height:1.9;
+  padding:6px 0;
+  border-bottom:1px solid var(--border);
+}
+.bk-entry:last-child{border:none}
+.bk-entry span{color:var(--red)}
+.bk-lesson{
+  font-size:13px;
+  color:var(--text2);
+  line-height:2;
+  max-width:500px;
+  margin:0 auto 28px;
+  font-style:italic;
+}
+.bk-lesson em{color:var(--red);font-style:normal}
+
+/* ─── MORTGAGE BADGE ─── */
+.mortgage-badge{
+  display:inline-block;
+  font-size:8px;
+  padding:2px 6px;
+  border-radius:2px;
+  background:rgba(204,140,44,.12);
+  color:var(--orange);
+  border:1px solid rgba(204,140,44,.3);
+  letter-spacing:1px;
+  margin-left:6px;
+}
+
+/* ─── DEAL CARDS ─── */
+.deal-card{
+  background:var(--bg2);
+  border:1px solid var(--border);
+  border-radius:8px;
+  padding:16px;
+  margin-bottom:10px;
+  cursor:pointer;
+  transition:all 0.18s;
+}
+.deal-card:hover:not(.deal-locked){border-color:var(--border-gold)}
+.deal-locked{opacity:0.35;pointer-events:none}
+.deal-name{font-family:'Cinzel',serif;font-size:13px;color:var(--gold);margin-bottom:7px;letter-spacing:1px}
+.deal-meta{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.deal-tag{font-size:9px;padding:2px 7px;border-radius:3px;letter-spacing:1px}
+.deal-prereq-missing{
+  font-size:10px;
+  color:var(--orange);
+  margin-top:6px;
+  line-height:1.7;
+}
+.deal-prereq-missing span{color:var(--text2)}
+
+/* ─── MODAL ─── */
+.modal-box{
+  background:var(--bg2);
+  border:1px solid var(--border-gold);
+  border-radius:10px;
+  padding:30px 26px;
+  max-width:75%;
+  width:100%;
+  text-align:center;
+}
+.modal-title{font-family:'Cinzel',serif;font-size:18px;color:var(--gold);margin-bottom:14px;letter-spacing:2px}
+.modal-body{font-size:13px;color:var(--text2);line-height:1.9;margin-bottom:22px}
+
+/* ─── WIN SCREEN ─── */
+.win{text-align:center;padding:48px 0}
+.wt{font-size:9px;letter-spacing:4px;text-transform:uppercase;color:var(--text3);margin-bottom:10px}
+.wc{font-size:56px;margin-bottom:10px}
+.wh{font-family:'Cinzel',serif;font-size:26px;color:var(--gold);letter-spacing:2px;margin-bottom:14px}
+.wb{font-size:13px;color:var(--text2);line-height:2;max-width:500px;margin:0 auto 28px}
+
+/* ─── TITLE SCREEN ─── */
+.hero{text-align:center;padding:48px 20px 36px}
+.big{
+  font-family:'Cinzel',serif;
+  font-size:clamp(28px,6vw,56px);
+  font-weight:700;
+  color:var(--gold);
+  letter-spacing:clamp(4px,1.5vw,12px);
+  line-height:1;
+  margin-bottom:6px;
+}
+.tagline{
+  font-size:10px;
+  letter-spacing:4px;
+  color:var(--text3);
+  text-transform:uppercase;
+  margin-bottom:36px;
+}
+.quote{
+  font-size:clamp(11px,1.6vw,14px);
+  color:var(--text2);
+  line-height:2.2;
+  max-width:680px;
+  margin:0 auto 40px;
+  font-style:italic;
+  text-align:center;
+  white-space:normal;
+  word-break:keep-all;
+}
+.quote em{color:var(--gold);font-style:normal}
+
+/* ─── LOADING ─── */
+.loading{
+  text-align:center;
+  padding:80px 20px;
+  color:var(--text3);
+  font-size:13px;
+  letter-spacing:3px;
+}
+
+/* ─── LOCATION SELECTOR ─── */
+.loc-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:22px}
+.loc-card{
+  background:var(--bg2);
+  border:1px solid var(--border);
+  border-radius:8px;
+  padding:14px;
+  cursor:pointer;
+  text-align:center;
+  transition:all 0.18s;
+}
+.loc-card:hover{border-color:var(--border-gold)}
+.loc-card.active{border-color:var(--gold)}
+.loc-name{font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px}
+.loc-cur{font-size:12px;color:var(--gold)}
+
+/* ─── IDENTITY SHIFT ─── */
+.identity-screen{
+  position:fixed;inset:0;background:#000;z-index:300;
+  display:flex;align-items:center;justify-content:center;padding:40px;
+}
+.identity-inner{text-align:center;max-width:560px}
+.identity-pre{font-size:9px;letter-spacing:4px;text-transform:uppercase;color:var(--text3);margin-bottom:24px}
+.identity-headline{font-family:'Cinzel',serif;font-size:28px;color:var(--gold);letter-spacing:2px;margin-bottom:28px;line-height:1.4}
+.identity-body{font-size:14px;color:var(--text2);line-height:2.2;margin-bottom:36px;font-style:italic}
+.identity-body em{color:var(--gold);font-style:normal}
+
+/* ─── LIFESTYLE TEMPTATION ─── */
+.temptation-card{
+  background:var(--bg2);
+  border:1px solid var(--orange);
+  border-radius:10px;
+  padding:22px;
+  margin-bottom:14px;
+  text-align:center;
+}
+.temptation-title{font-family:'Cinzel',serif;font-size:16px;color:var(--orange);margin-bottom:10px;letter-spacing:1px}
+.temptation-body{font-size:12px;color:var(--text2);line-height:1.8;margin-bottom:16px}
+
+/* ─── BUCKET LABELS ─── */
+.bucket-label{
+  font-size:9px;
+  letter-spacing:3px;
+  text-transform:uppercase;
+  padding:3px 8px;
+  border-radius:2px;
+  display:inline-block;
+  margin-bottom:10px;
+}
+.bucket-cf{background:rgba(58,170,106,.1);color:var(--green);border:1px solid rgba(58,170,106,.3)}
+.bucket-ap{background:rgba(201,168,76,.08);color:var(--gold);border:1px solid var(--border-gold)}
+.bucket-eq{background:rgba(74,138,204,.1);color:var(--blue);border:1px solid rgba(74,138,204,.3)}
+.bucket-dl{background:rgba(154,106,204,.1);color:var(--purple);border:1px solid rgba(154,106,204,.3)}
+
+/* ─── MANAGER BOARD STRIP ─── */
+.manager-strip{
+  background:var(--bg2);
+  border:1px solid rgba(74,138,204,.3);
+  border-radius:6px;
+  padding:11px 16px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:10px;
+}
+.manager-strip-label{font-size:11px;color:var(--blue)}
+.manager-strip-cost{font-size:10px;color:var(--text3);margin-top:2px}
+
+/* ─── SCROLLBAR ─── */
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+::-webkit-scrollbar-thumb:hover{background:var(--gold-dark)}
+
+/* ─── RESPONSIVE ─── */
+@media(max-width:600px){
+  .pgrid,.sgrid,.choice-grid,.loc-grid{grid-template-columns:1fr}
+  /* BUG 8 FIX — removed .hud5 from responsive override as class is removed */
+  .hud4,.hud3{grid-template-columns:repeat(2,1fr)}
+  .hud2{grid-template-columns:repeat(2,1fr)}
+  .deal-meta{flex-wrap:wrap;gap:4px}
+  .deal-tag{font-size:10px;padding:3px 8px}
+  .deal-card{padding:18px 14px;margin-bottom:12px}
+  .deal-name{font-size:14px;margin-bottom:8px}
+  .brow{gap:8px}
+  .brow .btn{flex:1;min-width:120px;padding:13px 10px;font-size:11px}
+  .modal-box{max-width:95%;padding:22px 16px}
+  .scenario-choices{gap:8px}
+  .response-options{gap:8px}
+  .scard{padding:16px 12px}
+  .sname{font-size:13px}
+  .item-row{padding:12px}
+  .item-name{font-size:12px}
+  .item-amt{font-size:13px}
+  .btn{padding:13px 16px;font-size:11px}
+  #screen{padding:20px 14px}
+  .arow{padding:12px}
+  .hbox{padding:10px 6px}
+  .hval{font-size:13px}
+}
+
+/* ─── EVENT FLASH ─── */
+/* BUG 5 FIX — single clean definition, removed duplicate at line 892 and JS injection */
+.event-flash{
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  z-index:999;
+  animation:flashFade 0.6s ease-out forwards;
+}
+.flash-red{background:rgba(204,68,68,0.18)}
+.flash-green{background:rgba(58,170,106,0.12)}
+@keyframes flashFade{
+  0%{opacity:1}
+  100%{opacity:0}
+}
+
+/* ─── PASSIVE INCOME COVER MOMENT ─── */
+.passive-cover-moment{
+  position:relative;
+  background:var(--bg);
+  border:1px solid var(--gold);
+  border-radius:12px;
+  padding:36px 28px;
+  margin-bottom:20px;
+  text-align:center;
+  overflow:hidden;
+  animation:pcm-arrive 0.6s ease-out forwards;
+}
+.passive-cover-moment::before{
+  content:'';
+  position:absolute;
+  inset:0;
+  background:radial-gradient(ellipse at 50% 0%, rgba(201,168,76,0.12) 0%, transparent 70%);
+  pointer-events:none;
+}
+@keyframes pcm-arrive{
+  from{opacity:0;transform:translateY(16px);}
+  to{opacity:1;transform:translateY(0);}
+}
+.pcm-pre{
+  font-size:9px;
+  letter-spacing:4px;
+  text-transform:uppercase;
+  color:var(--text3);
+  margin-bottom:20px;
+}
+.pcm-headline{
+  font-family:'Cinzel',serif;
+  font-size:clamp(20px,4vw,28px);
+  color:var(--gold);
+  letter-spacing:1px;
+  line-height:1.4;
+  margin-bottom:28px;
+}
+.pcm-numbers{
+  display:flex;
+  justify-content:center;
+  gap:20px;
+  flex-wrap:wrap;
+  margin-bottom:28px;
+}
+.pcm-num{
+  background:var(--bg2);
+  border:1px solid var(--border);
+  border-radius:8px;
+  padding:14px 22px;
+  min-width:130px;
+}
+.pcm-num-label{
+  font-size:9px;
+  letter-spacing:2px;
+  text-transform:uppercase;
+  color:var(--text3);
+  margin-bottom:6px;
+}
+.pcm-num-val{
+  font-size:18px;
+  font-weight:600;
+}
+.pcm-body{
+  font-size:13px;
+  color:var(--text2);
+  line-height:2.1;
+  max-width:480px;
+  margin:0 auto 24px;
+  font-style:italic;
+}
+.pcm-body em{
+  color:var(--gold);
+  font-style:normal;
+}
+/* BUG 4 FIX — .pcm-inner was used in HTML but had no CSS rule */
+.pcm-inner{
+  text-align:center;
+  max-width:560px;
+  margin:0 auto;
+}
+
+/* ─── DEAL FILTER BAR ─── */
+.deal-filter-bar{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  margin-bottom:16px;
+  align-items:center;
+}
+
+/* ─── LEGEND EVENT CARD ─── */
+.ecard.legend .outcome-lesson{
+  text-align:left;
+  margin-top:16px;
+}
+
+/* ─── HUD BREAKUP SCREEN (Feature 1) ─── */
+.hud-breakup{
+  background:var(--bg2);
+  border:1px solid var(--border-gold);
+  border-radius:10px;
+  padding:22px;
+  margin-bottom:18px;
+}
+.hud-breakup-title{
+  font-family:'Cinzel',serif;
+  font-size:15px;
+  color:var(--gold);
+  letter-spacing:2px;
+  margin-bottom:4px;
+}
+.hud-breakup-total{
+  font-size:22px;
+  font-weight:700;
+  color:var(--gold);
+  margin-bottom:16px;
+  line-height:1.2;
+}
+.hud-breakup-list{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  margin-bottom:14px;
+}
+.hud-breakup-row{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:10px 14px;
+  background:var(--bg3);
+  border-radius:6px;
+  border:1px solid var(--border);
+  gap:10px;
+}
+.hud-breakup-label{font-size:12px;color:var(--text);flex:1}
+.hud-breakup-sub{font-size:10px;color:var(--text3);margin-top:2px}
+.hud-breakup-val{font-size:13px;font-weight:600;white-space:nowrap}
+.hud-breakup-info{
+  font-size:11px;
+  color:var(--text3);
+  line-height:1.8;
+  padding:12px 14px;
+  background:var(--bg3);
+  border-radius:6px;
+  border:1px solid var(--border);
+  margin-bottom:14px;
+}
+
+/* ─── PAUSE/STOP EXPENSE CONTROLS (Feature 2) ─── */
+.exp-control-row{
+  display:flex;
+  gap:6px;
+  margin-top:6px;
+  flex-wrap:wrap;
+  align-items:center;
+}
+.exp-paused-badge{
+  display:inline-block;
+  font-size:8px;
+  padding:2px 7px;
+  border-radius:2px;
+  background:rgba(204,140,44,.12);
+  color:var(--orange);
+  border:1px solid rgba(204,140,44,.3);
+  letter-spacing:1px;
+}
+.exp-stopped-badge{
+  display:inline-block;
+  font-size:8px;
+  padding:2px 7px;
+  border-radius:2px;
+  background:rgba(204,68,68,.1);
+  color:var(--red);
+  border:1px solid rgba(204,68,68,.25);
+  letter-spacing:1px;
+}
+.exp-dealmaker-warning{
+  font-size:10px;
+  color:var(--orange);
+  margin-top:6px;
+  line-height:1.6;
+  font-style:italic;
+}
+
+/* ─── LIFESTYLE INFLATION CHOICE CARD (Feature 3) ─── */
+.lifestyle-inflation-card{
+  background:var(--bg2);
+  border:1px solid var(--orange);
+  border-radius:10px;
+  padding:24px;
+  margin-bottom:18px;
+  text-align:center;
+}
+.lifestyle-inflation-title{
+  font-family:'Cinzel',serif;
+  font-size:16px;
+  color:var(--orange);
+  margin-bottom:10px;
+  letter-spacing:1px;
+}
+.lifestyle-inflation-body{
+  font-size:12px;
+  color:var(--text2);
+  line-height:1.9;
+  margin-bottom:16px;
+}
+.lifestyle-inflation-amount{
+  font-size:18px;
+  font-weight:700;
+  color:var(--red);
+  margin-bottom:6px;
+}
+.lifestyle-inflation-perm{
+  font-size:10px;
+  color:var(--text3);
+  margin-bottom:18px;
+  letter-spacing:1px;
+  text-transform:uppercase;
+}
