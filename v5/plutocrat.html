@@ -1,0 +1,45 @@
+<style> .post-title, .PageList, .ContactForm {display:none;}</style>
+<!-- PLUTOCRAT v11 — Blogger shell -->
+<!-- Paste this entire block into a Blogger HTML widget -->
+<!-- All game files served from GitHub raw -->
+
+<!-- BUG 1 FIX — updated all URLs from v4 single-file paths to v11 split-file paths -->
+<!-- Load order is critical:                                                          -->
+<!--   1. Data files (pure data, no DOM, no logic)                                   -->
+<!--   2. Engine core (IIFE, state, helpers, exposes _PGInternal)                    -->
+<!--   3. Screen renderers (read from _PGInternal closure via shared scope)           -->
+<!--   4. Actions A/B/C (standalone files, read via window._PGInternal bridge)        -->
+
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<link href="https://plutocrat811.github.io/game/v11/css/plutocrat.css" rel="stylesheet"/>
+
+<div id="topbar">
+  <div>
+    <div id="tlogo">PLUTOCRAT</div>
+    <div id="tsub">Billionaire by 20</div>
+  </div>
+  <div id="tright"></div>
+</div>
+<div id="app">
+  <div id="screen" class="loading">Personalizing your experience...</div>
+  <div id="modal"></div>
+</div>
+
+<!-- Layer 1 — Data files (no DOM, no logic, pure data) -->
+<script src="https://plutocrat811.github.io/game/v11/js/plutocrat-data-core.js"></script>
+<script src="https://plutocrat811.github.io/game/v11/js/plutocrat-data-events.js"></script>
+<script src="https://plutocrat811.github.io/game/v11/js/plutocrat-data-scenarios.js"></script>
+
+<!-- Layer 2 — Engine core (opens + closes own IIFE, exposes window._PGInternal) -->
+<script src="https://plutocrat811.github.io/game/v11/js/plutocrat-engine-core.js"></script>
+
+<!-- Layer 2 — Screen renderers (must load after engine-core so LOC/G/helpers exist) -->
+<script src="https://plutocrat811.github.io/game/v11/js/plutocrat-engine-screens-setup.js"></script>
+<script src="https://plutocrat811.github.io/game/v11/js/plutocrat-engine-screens-game.js"></script>
+<script src="https://plutocrat811.github.io/game/v11/js/plutocrat-engine-screens-events.js"></script>
+
+<!-- Layer 2 — Actions (standalone files, read internals via window._PGInternal) -->
+<!-- A then B then C — C triggers init on DOM ready, must be last -->
+<script src="https://plutocrat811.github.io/game/v11/js/plutocrat-engine-actions-a.js"></script>
+<script src="https://plutocrat811.github.io/game/v11/js/plutocrat-engine-actions-b.js"></script>
+<script src="https://plutocrat811.github.io/game/v11/js/plutocrat-engine-actions-c.js"></script>
