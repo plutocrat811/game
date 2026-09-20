@@ -59,28 +59,37 @@ function rGame(s){
   /* HUD row 1 — Feature 1: each hbox is clickable, opens breakup screen */
   h+='<div class="hud hud4">'
     +'<div class="hbox" onclick="PG.openHud(\'cash\')" title="See cash breakdown">'
+    +'<span class="material-symbols-outlined hud-icon">account_balance_wallet</span>'
     +'<div class="hlbl">Cash</div><div class="hval">'+fmt(G.cash)+'</div></div>'
     +'<div class="hbox" onclick="PG.openHud(\'gross_passive\')" title="See gross passive breakdown">'
+    +'<span class="material-symbols-outlined hud-icon">trending_up</span>'
     +'<div class="hlbl">Gross passive</div><div class="hval '+(G.passiveIncome>0?'g':'')+'">'+fmt(G.passiveIncome)+'</div></div>'
     +'<div class="hbox" onclick="PG.openHud(\'net_passive\')" title="See net passive breakdown">'
+    +'<span class="material-symbols-outlined hud-icon">account_balance</span>'
     +'<div class="hlbl">Net passive</div><div class="hval '+(np>0?'g':'r')+'">'+fmtS(np)+'</div></div>'
     +'<div class="hbox" onclick="PG.openHud(\'expenses\')" title="See expense breakdown">'
+    +'<span class="material-symbols-outlined hud-icon">receipt_long</span>'
     +'<div class="hlbl">Total expenses</div><div class="hval r">'+fmt(exp)+'</div></div>'
     +'</div>';
 
   /* HUD row 2 */
   h+='<div class="hud hud4" style="margin-bottom:14px">'
     +'<div class="hbox" onclick="PG.openHud(\'free_time\')" title="See time breakdown">'
+    +'<span class="material-symbols-outlined hud-icon">schedule</span>'
     +'<div class="hlbl">Free time</div><div class="hval" style="color:'+timeColor()+'">'+ft+'/24</div></div>'
     +'<div class="hbox" onclick="PG.openHud(\'tax\')" title="See tax info">'
+    +'<span class="material-symbols-outlined hud-icon">request_quote</span>'
     +'<div class="hlbl">Tax rate</div><div class="hval o">'+G.taxRate+'%</div></div>'
     +'<div class="hbox" onclick="PG.openHud(\'discipline\')" title="See discipline info">'
+    +'<span class="material-symbols-outlined hud-icon">psychology</span>'
     +'<div class="hlbl">Discipline</div><div class="hval '+(G.disciplineScore>=5?'g':G.disciplineScore>=2?'':'r')+'">'+G.disciplineScore+'</div></div>'
     +(G.loanAmount>0
       ?'<div class="hbox" onclick="PG.openHud(\'loan\')" title="See loan info">'
+       +'<span class="material-symbols-outlined hud-icon" style="color:var(--red)">credit_card</span>'
        +'<div class="hlbl">Loan balance</div><div class="hval r">'+fmt(G.loanAmount)+'</div></div>'
       :'<div class="hbox" onclick="PG.openHud(\'coverage\')" title="See passive coverage info">'
-       +'<div class="hlbl">Passive coverage</div><div class="hval '+(np>=exp?'g':'r')+'">'+Math.round((np/Math.max(1,exp))*100)+'%</div></div>')
+       +'<span class="material-symbols-outlined hud-icon">verified_user</span>'
+       +'<div class="hlbl">Coverage</div><div class="hval '+(np>=exp?'g':'r')+'">'+Math.round((np/Math.max(1,exp))*100)+'%</div></div>')
     +'</div>';
 
   /* Time bar */
@@ -271,20 +280,20 @@ function rGame(s){
   var dealLocked=ft<1;
   var buyWarning=ft<=4&&ft>0;
   h+='<div class="sec"><span>Actions</span></div><div class="brow">'
-    +'<button class="btn btn-green" onclick="PG.goCollect()">Collect income'+(incDone?' ✓':'')+'</button>'
-    +'<button class="btn btn-red" onclick="PG.goPayExp()">Pay expenses'+(expDone?' ✓':'')+(overdueCount>0?' ('+overdueCount+' overdue)':'')+'</button>'
-    +'<button class="btn btn-gold'+(buyWarning?' btn-dim':'')+'" onclick="PG.goBuy()">Buy assets</button>'
-    +(np>0?'<button class="btn btn-blue" onclick="PG.goBorrow()">Borrow capital</button>':'')
+    +'<button class="btn btn-green" onclick="PG.goCollect()"><span class="material-symbols-outlined">payments</span> Collect'+(incDone?' ✓':'')+'</button>'
+    +'<button class="btn btn-red" onclick="PG.goPayExp()"><span class="material-symbols-outlined">credit_score</span> Pay bills'+(expDone?' ✓':'')+(overdueCount>0?' ('+overdueCount+' overdue)':'')+'</button>'
+    +'<button class="btn btn-gold'+(buyWarning?' btn-dim':'')+'" onclick="PG.goBuy()"><span class="material-symbols-outlined">storefront</span> Buy assets</button>'
+    +(np>0?'<button class="btn btn-blue" onclick="PG.goBorrow()"><span class="material-symbols-outlined">real_estate_agent</span> Borrow</button>':'')
     +(G.profile==='dealmaker'
       ?(dealLocked
-        ?'<button class="btn btn-dim" title="No free time to make deals">Make a deal (no time)</button>'
-        :'<button class="btn btn-purple" onclick="PG.goDeals()">Make a deal</button>')
+        ?'<button class="btn btn-dim" title="No free time to make deals"><span class="material-symbols-outlined">handshake</span> Make a deal</button>'
+        :'<button class="btn btn-purple" onclick="PG.goDeals()"><span class="material-symbols-outlined">handshake</span> Make a deal</button>')
       :'')
     +'</div>'
     +'<div class="brow">'
     +(cp
-      ?'<button class="btn btn-ghost" onclick="PG.passMonth()">Pass this month — next month</button>'
-      :'<button class="btn btn-dim" onclick="PG.passBlocked()">Pass this month — next month</button>')
+      ?'<button class="btn btn-ghost" onclick="PG.passMonth()">Next month <span class="material-symbols-outlined">arrow_forward</span></button>'
+      :'<button class="btn btn-dim" onclick="PG.passBlocked()">Next month <span class="material-symbols-outlined">arrow_forward</span></button>')
     +'</div>';
 
   s.innerHTML=h;
