@@ -92,6 +92,36 @@ html,body{
   align-items:center;
 }
 
+/* ─── MATERIAL ICONS ─── */
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal;
+  font-style: normal;
+  font-size: inherit;
+  display: inline-block;
+  line-height: 1;
+  text-transform: none;
+  letter-spacing: normal;
+  word-wrap: normal;
+  white-space: nowrap;
+  direction: ltr;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  -moz-osx-font-smoothing: grayscale;
+  vertical-align: middle;
+  position: relative;
+  top: -1px;
+}
+
+.hud-icon {
+  font-size: 22px;
+  color: var(--gold);
+  margin-bottom: 6px;
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+}
+
 /* ─── BUTTONS ─── */
 .btn{
   display:inline-flex;
