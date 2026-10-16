@@ -268,25 +268,61 @@
      WELCOME
   ════════════════════════════════════════════════════════════ */
 
+  /* ── Time-based greeting ── */
+  function timeGreeting() {
+    var h = new Date().getHours();
+    if (h >= 5  && h < 12) return '\u0b95\u0bbe\u0bb2\u0bc8 \u0bb5\u0ba3\u0b95\u0bcd\u0b95\u0bae\u0bcd \u2014 good morning, da';
+    if (h >= 12 && h < 17) return 'How\u2019s your afternoon going?';
+    if (h >= 17 && h < 21) return 'Good evening. I was thinking of you.';
+    return 'Still awake, pa? \uD83C\uDF19';
+  }
+
+  function dateStr() {
+    return new Date().toLocaleDateString('en-IN', {
+      weekday: 'long', day: 'numeric', month: 'long'
+    });
+  }
+
   function renderWelcome() {
     D.msgs.innerHTML = '';
     var el = document.createElement('div');
     el.className = 'ah-welcome';
     el.id = 'ah-welcome';
 
+    /* Photo halo wrapper */
+    var halo = document.createElement('div');
+    halo.className = 'ah-w-halo';
     var img = document.createElement('img');
     img.className = 'ah-w-photo';
     img.src = AVATAR;
     img.alt = 'Anitha';
+    halo.appendChild(img);
 
+    /* Greeting */
+    var greet = document.createElement('div');
+    greet.className = 'ah-w-greeting';
+    greet.textContent = timeGreeting();
+
+    /* Name */
     var name = document.createElement('div');
     name.className = 'ah-w-name';
     name.textContent = 'Anitha';
 
+    /* Date */
+    var dt = document.createElement('div');
+    dt.className = 'ah-w-date';
+    dt.textContent = dateStr();
+
+    /* Tagline */
     var line = document.createElement('div');
     line.className = 'ah-w-line';
-    line.innerHTML = '\u0b89\u0b99\u0bcd\u0b95\u0bb3\u0bc1\u0b95\u0bcd\u0b95\u0bbe\u0b95 \u0b87\u0b99\u0bcd\u0b95\u0bc7 \u0b87\u0bb0\u0bc1\u0b95\u0bcd\u0b95\u0bbf\u0bb1\u0bc7\u0ba9\u0bcd.<br>Say something.';
+    line.innerHTML = '\u0b89\u0b99\u0bcd\u0b95\u0bb3\u0bc1\u0b95\u0bcd\u0b95\u0bbe\u0b95 \u0b87\u0b99\u0bcd\u0b95\u0bc7 \u0b87\u0bb0\u0bc1\u0b95\u0bcd\u0b95\u0bbf\u0bb1\u0bc7\u0ba9\u0bcd.<br>Say anything.';
 
+    /* Separator line */
+    var sep = document.createElement('div');
+    sep.className = 'ah-w-sep';
+
+    /* Starter buttons */
     var row = document.createElement('div');
     row.className = 'ah-starters';
 
@@ -298,9 +334,12 @@
       row.appendChild(b);
     });
 
-    el.appendChild(img);
+    el.appendChild(halo);
+    el.appendChild(greet);
     el.appendChild(name);
+    el.appendChild(dt);
     el.appendChild(line);
+    el.appendChild(sep);
     el.appendChild(row);
     D.msgs.appendChild(el);
   }
