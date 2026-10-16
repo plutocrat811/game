@@ -1,5 +1,5 @@
 /* ================================================================
-   anitha.css  v3  —  Anitha Companion Chatbot
+   anitha.css  v2 (restored) — Anitha Companion Chatbot
    ================================================================ */
 
 /* ── Reset ───────────────────────────────────────────────────── */
@@ -13,39 +13,37 @@
 
 /* ── Tokens ──────────────────────────────────────────────────── */
 #anitha-app {
-  --bg-0:  #0c0910;
-  --bg-1:  #161121;
-  --bg-2:  #1f192c;
-  --bg-3:  #2a2239;
+  --bg-0:  #0d0b12;
+  --bg-1:  #17131f;
+  --bg-2:  #201b2c;
+  --bg-3:  #2a2339;
 
-  --border:    rgba(218, 88, 128, .14);
-  --border-hi: rgba(218, 88, 128, .38);
+  --border:    rgba(220, 90, 128, .13);
+  --border-hi: rgba(220, 90, 128, .32);
 
-  --t1: #f9f2f6;
-  --t2: #a899a4;
-  --t3: #5e4f59;
+  --t1: #f8f1f5;
+  --t2: #a899a3;
+  --t3: #635258;
 
-  --her:       #e0507c;
-  --her-soft:  #e86d93;
-  --her-glow:  rgba(224, 80, 124, .32);
-  --her-dim:   rgba(224, 80, 124, .14);
-  --gpt:       #19c37d;
-  --gem:       #5a9ef8;
-  --col:       var(--gem);          /* active model colour — Gemini default */
+  --her:      #e0527e;
+  --her-glow: rgba(224, 82, 126, .30);
+  --her-dim:  rgba(224, 82, 126, .15);
+  --gpt:      #19c37d;
+  --gem:      #5a9ef8;
+  --col:      var(--gem);
 
-  --bub-her:   #1c1630;
-  --bub-him:   var(--her);
+  --bub-her: #1d1830;
+  --bub-him: var(--her);
 
   --r:    20px;
   --r-sm: 12px;
   --r-xs: 5px;
 
   --font:  'Inter', -apple-system, system-ui, sans-serif;
-  --shd:   0 20px 60px rgba(0, 0, 0, .75);
+  --shd:   0 16px 56px rgba(0, 0, 0, .72);
   --tf: 130ms ease;
-  --tb: 250ms ease;
+  --tb: 230ms ease;
 
-  /* ── Layout ── */
   display: flex;
   flex-direction: column;
   width: 100%;
@@ -62,11 +60,10 @@
   position: relative;
 }
 
-/* Desktop: centered card */
 @media (min-width: 740px) {
   #anitha-app {
     height: min(710px, calc(100dvh - 24px));
-    border-radius: 28px;
+    border-radius: 26px;
     border: 1px solid var(--border);
     box-shadow: var(--shd);
   }
@@ -80,36 +77,31 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 14px 20px;
-  background: var(--bg-1);
+  padding: 12px 16px;
+  background: linear-gradient(180deg, var(--bg-1) 0%, rgba(23,19,31,.97) 100%);
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
   position: relative;
   z-index: 10;
 }
 
-/* Subtle glow line under header */
 .ah-header::after {
   content: '';
   position: absolute;
-  bottom: 0; left: 15%; right: 15%;
+  bottom: 0; left: 20%; right: 20%;
   height: 1px;
-  background: linear-gradient(90deg,
-    transparent,
-    rgba(224, 80, 124, .35),
-    transparent);
+  background: linear-gradient(90deg, transparent, var(--her-glow), transparent);
   pointer-events: none;
 }
 
 .ah-avatar {
-  width: 44px;
-  height: 44px;
+  width: 42px;
+  height: 42px;
   border-radius: 50%;
   object-fit: cover;
   border: 2px solid var(--her);
-  box-shadow: 0 0 0 3px var(--her-dim), 0 0 14px var(--her-glow);
+  box-shadow: 0 0 12px var(--her-glow);
   flex-shrink: 0;
-  transition: box-shadow var(--tb);
 }
 
 .ah-info { flex: 1; min-width: 0; }
@@ -136,10 +128,10 @@
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #26d468;
-  box-shadow: 0 0 7px rgba(38, 212, 104, .65);
+  background: #22d060;
+  box-shadow: 0 0 6px rgba(34, 208, 96, .6);
   flex-shrink: 0;
-  animation: ah-pulse 2.6s ease-in-out infinite;
+  animation: ah-pulse 2.4s ease-in-out infinite;
 }
 
 @keyframes ah-pulse {
@@ -147,7 +139,8 @@
   50%       { opacity: .3;  transform: scale(.82); }
 }
 
-/* Model toggle */
+/* ── Model toggle ────────────────────────────────────────────── */
+
 .ah-toggle {
   display: flex;
   background: var(--bg-2);
@@ -162,7 +155,7 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 5px 12px;
+  padding: 4px 10px;
   border-radius: 20px;
   border: none;
   background: transparent;
@@ -176,7 +169,9 @@
   transition: all var(--tf);
 }
 
+/* ✦ Fixed: active button gets more horizontal room */
 .ah-mbtn.on {
+  padding: 5px 14px;
   background: var(--col);
   color: #fff;
   box-shadow: 0 2px 10px rgba(0,0,0,.35);
@@ -184,10 +179,11 @@
 
 .ah-mbtn:not(.on):hover { color: var(--t1); }
 
-/* Icon buttons */
+/* ── Icon buttons ────────────────────────────────────────────── */
+
 .ah-ibtn {
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
   border: 1px solid var(--border);
   background: var(--bg-2);
@@ -213,9 +209,9 @@
   display: none;
   align-items: center;
   gap: 8px;
-  padding: 9px 20px;
-  background: rgba(239, 68, 68, .08);
-  border-bottom: 1px solid rgba(239, 68, 68, .18);
+  padding: 8px 16px;
+  background: rgba(239,68,68,.08);
+  border-bottom: 1px solid rgba(239,68,68,.18);
   font-size: 12px;
   color: #f87171;
   flex-shrink: 0;
@@ -226,112 +222,62 @@
 .ah-warn button {
   margin-left: auto;
   background: none;
-  border: 1px solid rgba(239,68,68,.3);
-  border-radius: 20px;
-  padding: 3px 10px;
+  border: none;
   color: inherit;
   font-family: var(--font);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
+  text-decoration: underline;
   cursor: pointer;
+  padding: 0;
   white-space: nowrap;
-  transition: background var(--tf);
 }
 
-.ah-warn button:hover { background: rgba(239,68,68,.12); }
-
-/* ── MESSAGES AREA ──────────────────────────────────────────── */
+/* ── MESSAGES ───────────────────────────────────────────────── */
 
 .ah-msgs {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 18px 18px;
+  padding: 14px 16px;
   display: flex;
   flex-direction: column;
   gap: 10px;
   scroll-behavior: smooth;
-  /* Atmospheric depth — subtle pink glow where avatar sits */
   background:
-    radial-gradient(ellipse 70% 38% at 50% 18%,
-      rgba(224, 80, 124, .07) 0%, transparent 70%),
-    radial-gradient(ellipse 50% 50% at 80% 90%,
-      rgba(90, 158, 248, .04) 0%, transparent 65%),
+    radial-gradient(ellipse 60% 40% at 50% 0%, rgba(224,82,126,.04) 0%, transparent 70%),
     var(--bg-0);
 }
 
 .ah-msgs::-webkit-scrollbar { width: 3px; }
 .ah-msgs::-webkit-scrollbar-track { background: transparent; }
 .ah-msgs::-webkit-scrollbar-thumb {
-  background: rgba(224, 80, 124, .22);
+  background: rgba(224, 82, 126, .22);
   border-radius: 3px;
 }
 
-/* ── WELCOME SCREEN ─────────────────────────────────────────── */
+/* ── WELCOME ────────────────────────────────────────────────── */
 
 .ah-welcome {
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  /* Push content to natural upper-center reading position */
-  padding-top: 6%;
-  padding-bottom: 24px;
-  padding-left: 20px;
-  padding-right: 20px;
+  gap: 12px;
+  padding: 28px 20px;
   flex: 1;
-  min-height: 0;
-}
-
-/* Photo halo layers */
-.ah-w-halo {
-  position: relative;
-  width: 120px;
-  height: 120px;
-  margin-bottom: 20px;
-  flex-shrink: 0;
-}
-
-.ah-w-halo::before,
-.ah-w-halo::after {
-  content: '';
-  position: absolute;
-  inset: -6px;
-  border-radius: 50%;
-  animation: ah-halo 3s ease-in-out infinite;
-}
-
-.ah-w-halo::before {
-  background: conic-gradient(
-    var(--her) 0%, var(--her-soft) 25%,
-    transparent 50%, var(--her-soft) 75%, var(--her) 100%
-  );
-  opacity: .55;
-}
-
-.ah-w-halo::after {
-  inset: -12px;
-  background: radial-gradient(circle, var(--her-glow) 0%, transparent 70%);
-  opacity: .6;
-  animation-delay: .5s;
-}
-
-@keyframes ah-halo {
-  0%, 100% { transform: scale(1);    opacity: .55; }
-  50%       { transform: scale(1.05); opacity: .85; }
+  justify-content: center;
 }
 
 .ah-w-photo {
-  position: relative;
-  z-index: 2;
-  width: 120px;
-  height: 120px;
+  width: 90px;
+  height: 90px;
   border-radius: 50%;
   object-fit: cover;
   border: 3px solid var(--her);
-  animation: ah-float 4s ease-in-out infinite;
-  display: block;
+  box-shadow: 0 0 0 6px var(--her-dim), 0 0 40px var(--her-glow);
+  animation: ah-float 3.8s ease-in-out infinite;
 }
 
 @keyframes ah-float {
@@ -339,81 +285,49 @@
   50%       { transform: translateY(-8px) scale(1.02); }
 }
 
-.ah-w-greeting {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--her-soft);
-  letter-spacing: .6px;
-  text-transform: uppercase;
-  margin-bottom: 6px;
-  opacity: .85;
-}
-
 .ah-w-name {
-  font-size: 30px;
+  font-size: 26px;
   font-weight: 800;
   letter-spacing: -.5px;
-  line-height: 1.15;
-  margin-bottom: 10px;
-  background: linear-gradient(125deg, var(--t1) 0%, var(--her-soft) 100%);
+  background: linear-gradient(135deg, var(--t1) 0%, var(--her) 120%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
-.ah-w-date {
-  font-size: 11px;
-  color: var(--t3);
-  margin-bottom: 8px;
-  letter-spacing: .2px;
-}
-
 .ah-w-line {
-  font-size: 13.5px;
+  font-size: 13px;
   color: var(--t2);
   line-height: 1.75;
   max-width: 240px;
-  margin-bottom: 24px;
-}
-
-/* Separator */
-.ah-w-sep {
-  width: 40px;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, var(--her), transparent);
-  border-radius: 2px;
-  margin-bottom: 20px;
-  opacity: .5;
 }
 
 .ah-starters {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 7px;
   justify-content: center;
-  max-width: 360px;
+  margin-top: 4px;
 }
 
 .ah-start {
-  padding: 9px 18px;
-  border-radius: 22px;
+  padding: 7px 16px;
+  border-radius: 20px;
   border: 1px solid var(--border);
   background: var(--bg-2);
   color: var(--t2);
   font-family: var(--font);
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 500;
   cursor: pointer;
   transition: all var(--tf);
-  line-height: 1.4;
 }
 
 .ah-start:hover {
   border-color: var(--her);
   color: var(--t1);
   background: var(--her-dim);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px var(--her-glow);
+  transform: translateY(-1px);
 }
 
 .ah-start:active { transform: translateY(0); }
@@ -422,12 +336,12 @@
 
 .ah-row {
   display: flex;
-  gap: 9px;
+  gap: 8px;
   animation: ah-in .22s ease both;
 }
 
 @keyframes ah-in {
-  from { opacity: 0; transform: translateY(12px); }
+  from { opacity: 0; transform: translateY(10px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
@@ -440,7 +354,7 @@
   object-fit: cover;
   flex-shrink: 0;
   align-self: flex-end;
-  border: 2px solid rgba(224, 80, 124, .45);
+  border: 1.5px solid var(--her);
 }
 
 .ah-av-him {
@@ -466,30 +380,27 @@
 
 .ah-row.him .ah-body { align-items: flex-end; }
 
-/* Bubbles */
 .ah-bub {
-  padding: 11px 15px;
+  padding: 10px 14px;
   border-radius: var(--r);
   font-size: 14px;
-  line-height: 1.68;
+  line-height: 1.65;
   word-break: break-word;
 }
 
-/* Her bubble */
 .ah-row:not(.him) .ah-bub {
   background: var(--bub-her);
   border: 1px solid rgba(255,255,255,.05);
   border-bottom-left-radius: var(--r-xs);
   color: var(--t1);
-  box-shadow: 0 2px 14px rgba(0,0,0,.35);
+  box-shadow: 0 2px 12px rgba(0,0,0,.3);
 }
 
-/* His bubble */
 .ah-row.him .ah-bub {
-  background: linear-gradient(140deg, var(--her) 0%, #bd3464 100%);
+  background: linear-gradient(135deg, var(--her) 0%, #c43d6a 100%);
   color: #fff;
   border-bottom-right-radius: var(--r-xs);
-  box-shadow: 0 3px 16px rgba(224, 80, 124, .38);
+  box-shadow: 0 2px 14px var(--her-glow);
 }
 
 .ah-meta {
@@ -513,11 +424,10 @@
 .ah-tag.gpt { background: rgba(25,195,125,.14); color: var(--gpt); }
 .ah-tag.gem { background: rgba(90,158,248,.14); color: var(--gem); }
 
-/* Streaming cursor */
 .ah-cur {
   display: inline;
-  color: var(--her-soft);
-  animation: ah-blink .74s infinite;
+  color: var(--her);
+  animation: ah-blink .72s infinite;
 }
 
 @keyframes ah-blink {
@@ -525,11 +435,11 @@
   50%, 100% { opacity: 0; }
 }
 
-/* ── TYPING INDICATOR ───────────────────────────────────────── */
+/* ── TYPING ─────────────────────────────────────────────────── */
 
 .ah-typing {
   display: flex;
-  gap: 9px;
+  gap: 8px;
   animation: ah-in .22s ease both;
 }
 
@@ -542,7 +452,7 @@
   display: flex;
   gap: 5px;
   align-items: center;
-  box-shadow: 0 2px 14px rgba(0,0,0,.35);
+  box-shadow: 0 2px 12px rgba(0,0,0,.3);
 }
 
 .ah-dot-b {
@@ -558,10 +468,10 @@
 
 @keyframes ah-bounce {
   0%, 80%, 100% { transform: translateY(0);    opacity: .4; }
-  40%            { transform: translateY(-7px); opacity: 1;  }
+  40%            { transform: translateY(-6px); opacity: 1;  }
 }
 
-/* ── BUBBLE MARKDOWN ────────────────────────────────────────── */
+/* ── BUBBLE CONTENT ─────────────────────────────────────────── */
 
 .ah-bub strong { font-weight: 600; }
 .ah-bub em     { font-style: italic; }
@@ -587,41 +497,38 @@
 /* ── INPUT AREA ─────────────────────────────────────────────── */
 
 .ah-foot {
-  padding: 14px 18px 18px;
-  background: var(--bg-1);
+  /* ✦ Fixed: symmetric, generous padding */
+  padding: 14px 16px;
+  background: linear-gradient(0deg, var(--bg-1) 0%, rgba(23,19,31,.97) 100%);
   border-top: 1px solid var(--border);
   flex-shrink: 0;
   position: relative;
   z-index: 10;
 }
 
-/* Glow line above input */
 .ah-foot::before {
   content: '';
   position: absolute;
   top: 0; left: 15%; right: 15%;
   height: 1px;
-  background: linear-gradient(90deg,
-    transparent,
-    rgba(224, 80, 124, .28),
-    transparent);
+  background: linear-gradient(90deg, transparent, var(--her-glow), transparent);
   pointer-events: none;
 }
 
 .ah-input-row {
   display: flex;
   align-items: flex-end;
-  gap: 10px;
+  gap: 8px;
   background: var(--bg-2);
   border: 1.5px solid var(--border);
   border-radius: var(--r);
-  padding: 10px 10px 10px 18px;
+  padding: 8px 8px 8px 16px;
   transition: border-color var(--tf), box-shadow var(--tf);
 }
 
 .ah-input-row:focus-within {
   border-color: var(--her);
-  box-shadow: 0 0 0 3px var(--her-dim), 0 4px 20px rgba(0,0,0,.3);
+  box-shadow: 0 0 0 3px var(--her-dim);
 }
 
 #ah-in {
@@ -644,10 +551,10 @@
 #ah-in::-webkit-scrollbar-thumb { background: var(--border); }
 
 .ah-send {
-  width: 38px;
-  height: 38px;
-  border-radius: 13px;
-  background: linear-gradient(140deg, var(--her) 0%, #bc3363 100%);
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--her) 0%, #c2355f 100%);
   border: none;
   cursor: pointer;
   display: flex;
@@ -655,14 +562,14 @@
   justify-content: center;
   flex-shrink: 0;
   color: #fff;
-  box-shadow: 0 4px 16px rgba(224, 80, 124, .42);
+  box-shadow: 0 3px 12px var(--her-glow);
   transition: all var(--tf);
 }
 
-.ah-send:hover  { transform: scale(1.09); filter: brightness(1.1); box-shadow: 0 6px 22px rgba(224,80,124,.55); }
-.ah-send:active { transform: scale(0.90); box-shadow: none; }
+.ah-send:hover  { transform: scale(1.08); filter: brightness(1.12); }
+.ah-send:active { transform: scale(0.90); }
 .ah-send:disabled {
-  opacity: .28;
+  opacity: .32;
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
@@ -670,9 +577,9 @@
 .ah-send svg { width: 16px; height: 16px; }
 
 .ah-stop {
-  width: 38px;
-  height: 38px;
-  border-radius: 13px;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
   background: rgba(239,68,68,.12);
   border: 1.5px solid rgba(239,68,68,.28);
   cursor: pointer;
@@ -692,8 +599,8 @@
   font-size: 10px;
   color: var(--t3);
   text-align: center;
-  margin-top: 9px;
-  letter-spacing: .15px;
+  margin-top: 8px;
+  letter-spacing: .1px;
 }
 
 /* ── SETTINGS MODAL ─────────────────────────────────────────── */
@@ -701,14 +608,14 @@
 .ah-overlay {
   position: absolute;
   inset: 0;
-  background: rgba(0,0,0,.82);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: rgba(0,0,0,.80);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   z-index: 50;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 18px;
+  padding: 16px;
   border-radius: inherit;
   animation: ah-in .15s ease;
 }
@@ -716,12 +623,12 @@
 .ah-modal {
   background: var(--bg-1);
   border: 1px solid var(--border);
-  border-radius: 20px;
-  padding: 24px;
+  border-radius: 18px;
+  padding: 22px;
   width: 100%;
   max-width: 360px;
   box-shadow: var(--shd);
-  max-height: calc(100% - 36px);
+  max-height: calc(100% - 32px);
   overflow-y: auto;
 }
 
@@ -729,14 +636,14 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 22px;
+  margin-bottom: 20px;
 }
 
-.ah-mtitle { font-size: 16px; font-weight: 700; }
+.ah-mtitle { font-size: 15px; font-weight: 700; }
 
 .ah-mclose {
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   background: var(--bg-2);
   border: 1px solid var(--border);
@@ -745,30 +652,30 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 15px;
+  font-size: 14px;
   font-family: var(--font);
   transition: all var(--tf);
 }
 
 .ah-mclose:hover { color: var(--t1); }
 
-.sg   { margin-bottom: 15px; }
+.sg   { margin-bottom: 14px; }
 .slbl {
   font-size: 10px;
   font-weight: 600;
   color: var(--t2);
   text-transform: uppercase;
-  letter-spacing: .6px;
-  margin-bottom: 7px;
+  letter-spacing: .5px;
+  margin-bottom: 6px;
 }
 
 .sinp,
 .ssel {
   width: 100%;
   background: var(--bg-2);
-  border: 1.5px solid var(--border);
+  border: 1px solid var(--border);
   border-radius: var(--r-sm);
-  padding: 10px 13px;
+  padding: 9px 12px;
   color: var(--t1);
   font-family: var(--font);
   font-size: 13px;
@@ -788,28 +695,28 @@
   font-size: 11px;
   color: var(--t3);
   margin-top: 5px;
-  line-height: 1.55;
+  line-height: 1.5;
 }
 
-.shint a { color: var(--her-soft); text-decoration: none; }
+.shint a { color: var(--her); text-decoration: none; }
 .shint a:hover { text-decoration: underline; }
 
-.sdiv { height: 1px; background: var(--border); margin: 15px 0; }
+.sdiv { height: 1px; background: var(--border); margin: 14px 0; }
 
 .snote {
   font-size: 11px;
   color: var(--t3);
-  padding: 10px 13px;
+  padding: 9px 11px;
   background: var(--bg-2);
   border-radius: var(--r-xs);
   line-height: 1.65;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
 }
 
 .ssave {
   width: 100%;
-  padding: 12px;
-  background: linear-gradient(140deg, var(--her), #bc3363);
+  padding: 11px;
+  background: linear-gradient(135deg, var(--her), #c2355f);
   border: none;
   border-radius: var(--r-sm);
   color: #fff;
@@ -817,7 +724,7 @@
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 4px 18px var(--her-glow);
+  box-shadow: 0 4px 16px var(--her-glow);
   transition: all var(--tf);
 }
 
@@ -828,20 +735,20 @@
 
 .ah-toast {
   position: absolute;
-  bottom: 88px;
+  bottom: 84px;
   left: 50%;
   transform: translateX(-50%);
   background: var(--bg-3);
   border: 1px solid var(--border-hi);
   border-radius: 30px;
-  padding: 8px 20px;
+  padding: 7px 18px;
   font-size: 12px;
   font-weight: 500;
   white-space: nowrap;
   z-index: 60;
   animation: ah-in .2s ease;
   pointer-events: none;
-  box-shadow: 0 6px 24px rgba(0,0,0,.55);
+  box-shadow: 0 4px 20px rgba(0,0,0,.5);
 }
 
 /* ── MOBILE ─────────────────────────────────────────────────── */
@@ -852,18 +759,15 @@
     border: none;
     max-width: 100%;
   }
-  .ah-body   { max-width: 80%; }
-  .ah-msgs   { padding: 14px 14px; }
-  .ah-foot   { padding: 12px 14px 16px; }
-  .ah-mbtn   { padding: 4px 9px; font-size: 10px; }
+  .ah-body  { max-width: 80%; }
+  .ah-msgs  { padding: 12px; }
+  .ah-foot  { padding: 10px 12px; }
+  .ah-mbtn  { padding: 4px 8px; font-size: 10px; }
   .ah-header { padding: 12px 14px; }
-  .ah-w-photo { width: 100px; height: 100px; }
-  .ah-w-halo  { width: 100px; height: 100px; }
 }
 
-/* Safe area for notched phones */
 @supports (padding: env(safe-area-inset-bottom)) {
   .ah-foot {
-    padding-bottom: calc(18px + env(safe-area-inset-bottom));
+    padding-bottom: calc(14px + env(safe-area-inset-bottom));
   }
 }
