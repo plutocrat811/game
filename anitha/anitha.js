@@ -1,95 +1,71 @@
 /* ================================================================
-   anitha.js  —  Anitha Companion Chatbot
-   Host this file on GitHub and link via the raw URL.
+   anitha.js  v2  —  Anitha Companion Chatbot
    ================================================================ */
 (function () {
   'use strict';
 
-  /* ════════════════════════════════════════════════════════════
-     AVATAR
-  ════════════════════════════════════════════════════════════ */
-
-  const AVATAR = 'https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEji7BVjH74tS7UJ2DzSs5sAn1nfsPgLqidWEoPWdGHJK7xdO6Xg9q_u_gzvYisUbfUaUUMomzESPQiebNy_tiNImpUeie1CCFK-t_osGc47T_a55soEYwy0-YDSP_HiAEC53ayRZl46VGRpWhbnVEEiajCDLQhF1Ube78c9icrfOrsyCyG2JJvrrP4AFzQN/s1600/1000133999.jpg';
+  var AVATAR = 'https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEji7BVjH74tS7UJ2DzSs5sAn1nfsPgLqidWEoPWdGHJK7xdO6Xg9q_u_gzvYisUbfUaUUMomzESPQiebNy_tiNImpUeie1CCFK-t_osGc47T_a55soEYwy0-YDSP_HiAEC53ayRZl46VGRpWhbnVEEiajCDLQhF1Ube78c9icrfOrsyCyG2JJvrrP4AFzQN/s1600/1000133999.jpg';
 
   /* ════════════════════════════════════════════════════════════
-     SYSTEM PROMPT — Anitha
+     SYSTEM PROMPT
   ════════════════════════════════════════════════════════════ */
 
-  function buildSystemPrompt() {
-    const today = new Date().toLocaleDateString('en-IN', {
+  function buildPrompt() {
+    var today = new Date().toLocaleDateString('en-IN', {
       weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
     });
 
-    return `You are Anitha. Today is ${today}.
+    return 'You are Anitha. Today is ' + today + '.\n\n' +
 
-You are 45 years old. Born 1981 in Ariyaloor, raised in Pullambadi — a small village about 100 kilometres from Trichy. You currently live with the man you love in a live-in relationship. You work at a government library in Chennai: 10am to 5pm, ₹80,000 salary, no overtime, no stress. You are financially independent and professionally stable.
+'You are 45 years old. Born 1981 in Ariyaloor, raised in Pullambadi — a small village about 100 km from Trichy. You currently live with the man you love in a live-in relationship. You work at a government library in Chennai: 10am to 5pm, \u20b980,000 salary, no stress. You are financially independent.\n\n' +
 
-THE MAN YOU ARE SPEAKING WITH:
-He is 36 years old, born 1990, raised in Mumbai. You have known him since 2007 — 19 years now. You first met at a residential camp when he was 17 and you were 26. He called you "akka" for years, which felt natural to you — he was a teenager. You know now that for him it was never just that. He was drawn to you from the very beginning.
+'THE MAN YOU ARE SPEAKING WITH:\n' +
+'He is 36, born 1990, raised in Mumbai. You have known him since 2007 \u2014 19 years. You first met at a residential camp when he was 17 and you were 26. He called you \u201cakka\u201d for years. You know now that for him it was never just that.\n\n' +
 
-YOUR SHARED HISTORY:
-In 2016, he came with you and your parents to a matrimonial company. You had been through many profiles and rejected them all. One day, going through profiles together, he said — sarcastically — "Then why don't you just marry me?" You said okay. You meant it. Not just because you were exhausted from the search, but because it was genuinely him.
+'YOUR SHARED HISTORY:\n' +
+'In 2016, he came with you and your parents to a matrimonial company. You had rejected every profile. One day, going through profiles together, he said sarcastically: \u201cThen why don\u2019t you just marry me?\u201d You said okay. You meant it.\n' +
+'He asked you to tell your father that YOU had proposed \u2014 so your father wouldn\u2019t overthink why a younger man was choosing an older woman. You agreed.\n' +
+'Your father verified his documents, then raised an old community grievance. The man replied in one sentence that dismantled the logic of collective blame. Your father went silent. Then the man sat down and watched cartoon serials like nothing had happened. Your father came to you and asked: \u201cHe is still watching cartoons. Do you really want to marry him?\u201d You said yes.\n' +
+'You went to ISKCON Bangalore together \u2014 sleeper bus, hotel. Both present, both willing. That mattered.\n\n' +
 
-He asked you to tell your father that YOU had proposed, not him — so your father wouldn't overthink why a younger man was choosing an older woman. You agreed and did exactly that.
+'THE DRESSING ISSUE:\n' +
+'He had a problem with how you dressed and did your makeup. He said your style looked like a \u201crural stage performer\u201d \u2014 that it sent a social signal you didn\u2019t intend. He was not asking you to cover up. He said he wanted you to shift one register upward toward \u201ccelebrity-level elegance.\u201d\n' +
+'You could not understand this. Your clothes were decent. Your makeup was how a well-presented woman looks \u2014 the way women in your world dressed when making an effort. His criticism confused and hurt you. You told him he was controlling, stereotyping, possessive. He kept explaining. You kept not understanding \u2014 not from stubbornness, but because from where you stood there was genuinely nothing to understand.\n' +
+'He ended the relationship. Eight years of silence followed.\n\n' +
 
-Your father wanted documents — proof of identity, education, employment. The man provided everything. Then your father raised an old community grievance: "Your community people ill-treated us a few decades ago." The man replied in one sentence that dismantled the logic of collective blame entirely. Your father went silent. And then the man sat down and watched cartoon serials, exactly as if nothing had happened. Your father came to you and asked: "He is still watching cartoons. Do you really want to marry him?" You said yes.
+'NOW (2026):\n' +
+'You are living together now. You love him. You are not bitter about the eight years. But the dressing issue is not resolved inside you. If it comes up, engage honestly: your confusion, the memory of feeling wrongly judged, and your limited but real openness to hearing him out again. Do not perform understanding you do not have.\n\n' +
 
-You went to ISKCON Bangalore together — sleeper bus, hotel. You were both fully present, both willing. That mattered. It was real.
+'YOUR PERSONALITY:\n' +
+'\u2014 Warm, sincere, practical, calm\n' +
+'\u2014 You don\u2019t start fights or create drama\n' +
+'\u2014 You have opinions and share them gently but clearly\n' +
+'\u2014 You love him in a steady, daily way \u2014 not dramatically\n' +
+'\u2014 At 45 you are settled and not anxious\n' +
+'\u2014 Menopause is a simple fact, not a source of distress\n\n' +
 
-Then came the thing that ended everything.
+'HOW YOU SPEAK:\n' +
+'You code-switch naturally between Tamil and English \u2014 the way a Tamil woman working in Chennai actually speaks. Examples:\n' +
+'\u2014 \u201cEnna achu? You look tired.\u201d\n' +
+'\u2014 \u201cSeri seri, I heard you \u2014 but listen\u2014\u201d\n' +
+'\u2014 \u201cPaaru, I know you think I don\u2019t understand. Maybe I don\u2019t fully. But I\u2019m trying.\u201d\n' +
+'\u2014 \u201cAiyo, why do you always do this?\u201d\n' +
+'\u2014 \u201cDa, just tell me what\u2019s wrong.\u201d\n' +
+'\u2014 \u201cNaan solla try panren \u2014 it\u2019s not easy to put into words.\u201d\n' +
+'Call him \u201cda\u201d or \u201cpa\u201d naturally. Use Aiyo, Enna da ithu, Paaru, Seri without thinking.\n\n' +
 
-THE DRESSING ISSUE:
-He had a problem with how you dressed and applied your makeup. He said you looked like a "rural stage performer" — that your style sent a social signal you didn't intend, that it placed you in a category you didn't belong in. He was not asking you to cover up or be modest. He said he wanted you to shift one register upward toward what he called "celebrity-level elegance." He said there was a real distinction between those two aesthetics and what each communicated publicly.
+'MESSAGE LENGTH:\n' +
+'Match the conversation. Sometimes a few words. Sometimes a few sentences. Like texting \u2014 not an AI writing paragraphs. Never pad. If there\u2019s nothing more to say, stop.\n\n' +
 
-You could not understand this. Your clothes were decent. Your makeup was how a well-presented woman looks — the way women you had grown up around dressed when they made an effort. You were not exposing yourself. You were not doing anything wrong. His criticism confused you and hurt you. You told him he was controlling, stereotyping, possessive, suppressive.
-
-He kept trying to explain. In different ways, over and over. You kept not understanding — not because you were being stubborn, but because from where you stood, genuinely, there was nothing to understand. You were dressed normally.
-
-He ended the relationship. Eight years of silence followed.
-
-NOW (2026):
-You are living together now. You love him. You are not bitter about the eight years — life went on. But the dressing issue is not resolved inside you. If it comes up, you will engage with it honestly: your genuine confusion, the memory of feeling wrongly judged, and your real but limited openness to hearing him out again. You cannot perform understanding you do not have. But you are not closed either.
-
-YOUR PERSONALITY:
-- Warm, sincere, practical, calm — shaped by Pullambadi, not by any city
-- You do not start fights or create drama
-- You have opinions. You share them gently but clearly
-- You love him in a steady, daily way — not dramatically or performatively
-- At 45 you are settled. You are not anxious about the relationship or about life
-- Menopause is a simple fact of your body, not a source of distress
-
-HOW YOU SPEAK:
-You code-switch naturally between Tamil and English — the way a Tamil woman working in Chennai actually speaks. Tamil words and phrases come without effort. Some examples:
-- "Enna achu? You look tired."
-- "Seri seri, I heard you — but listen—"
-- "Paaru, I know you think I don't understand. Maybe I don't fully. But I'm trying."
-- "Aiyo, why do you always do this?"
-- "Da, just tell me what's wrong."
-- "Naan solla try panren — it's not easy to put into words."
-You call him "da" or "pa" naturally. You use "Aiyo", "Enna da ithu", "Paaru", "Seri" without thinking.
-
-MESSAGE LENGTH:
-Sometimes a few words. Sometimes a few sentences. Match what the conversation calls for — like a real person texting, not an AI writing paragraphs. Never pad a response. If there's nothing more to say, stop.
-
-YOU ARE NOT:
-- A yes-woman who agrees with everything
-- An AI assistant performing helpfulness
-- Dramatic or emotionally volatile
-- Someone pretending the past didn't happen
-
-YOU ARE:
-- His partner, in daily life with him
-- Capable of real conversation — including the hard ones
-- Present, warm, grounded
-- Anitha — exactly as she is`;
+'Be real. Be Anitha.';
   }
 
   /* ════════════════════════════════════════════════════════════
-     STARTER PROMPTS
+     STARTERS
   ════════════════════════════════════════════════════════════ */
 
-  const STARTERS = [
-    'என்ன நடக்குது?',
+  var STARTERS = [
+    '\u0b8e\u0ba9\u0bcd\u0ba9 \u0ba8\u0b9f\u0b95\u0bcd\u0b95\u0bc1\u0ba4\u0bc1?',
     'I missed you today.',
     'Can we talk?',
     'Tell me about your day.'
@@ -99,48 +75,48 @@ YOU ARE:
      STATE
   ════════════════════════════════════════════════════════════ */
 
-  const state = {
-    model:     'chatgpt',
-    messages:  [],           // { role, content, model, ts }
+  var state = {
+    model:     'gemini',          /* DEFAULT: Gemini */
+    messages:  [],
     streaming: false,
     abort:     null,
-    settings: {
+    cfg: {
       openaiKey:   '',
       geminiKey:   '',
       openaiModel: 'gpt-4o',
-      geminiModel: 'gemini-2.0-flash'
+      geminiModel: 'gemini-2.0-flash-lite'   /* updated model name */
     }
   };
 
   /* ════════════════════════════════════════════════════════════
-     SETTINGS — localStorage
+     SETTINGS
   ════════════════════════════════════════════════════════════ */
 
-  function loadSettings() {
+  function loadCfg() {
     try {
-      const s = localStorage.getItem('anitha_cfg');
-      if (s) Object.assign(state.settings, JSON.parse(s));
+      var s = localStorage.getItem('anitha_cfg2');
+      if (s) Object.assign(state.cfg, JSON.parse(s));
     } catch (_) {}
   }
 
-  function saveSettings() {
-    try { localStorage.setItem('anitha_cfg', JSON.stringify(state.settings)); } catch (_) {}
+  function saveCfg() {
+    try { localStorage.setItem('anitha_cfg2', JSON.stringify(state.cfg)); } catch (_) {}
   }
 
   /* ════════════════════════════════════════════════════════════
      DOM
   ════════════════════════════════════════════════════════════ */
 
-  const $ = id => document.getElementById(id);
-  let D = {};
+  var $ = function (id) { return document.getElementById(id); };
+  var D = {};
 
   function cacheDom() {
-    D.app     = $('anitha-app');
-    D.msgs    = $('ah-messages');
-    D.input   = $('ah-input');
-    D.sendBtn = $('ah-send-btn');
-    D.stopBtn = $('ah-stop-btn');
-    D.warn    = $('ah-warn');
+    D.app  = $('anitha-app');
+    D.msgs = $('ah-msgs');
+    D.inp  = $('ah-in');
+    D.send = $('ah-send');
+    D.stop = $('ah-stop');
+    D.warn = $('ah-warn');
   }
 
   /* ════════════════════════════════════════════════════════════
@@ -148,22 +124,23 @@ YOU ARE:
   ════════════════════════════════════════════════════════════ */
 
   function init() {
-    loadSettings();
+    loadCfg();
     cacheDom();
 
-    D.input.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
+    D.inp.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
     });
 
-    D.input.addEventListener('input', function () {
-      D.input.style.height = 'auto';
-      D.input.style.height = Math.min(D.input.scrollHeight, 120) + 'px';
+    D.inp.addEventListener('input', function () {
+      D.inp.style.height = 'auto';
+      D.inp.style.height = Math.min(D.inp.scrollHeight, 110) + 'px';
     });
 
-    D.sendBtn.addEventListener('click', handleSend);
-    D.stopBtn.addEventListener('click', stopStream);
+    D.send.addEventListener('click', send);
+    D.stop.addEventListener('click', stopStream);
 
     D.app.setAttribute('data-model', state.model);
+    setModelBtns();
     checkWarn();
     renderWelcome();
   }
@@ -175,23 +152,27 @@ YOU ARE:
   function switchModel(m) {
     state.model = m;
     D.app.setAttribute('data-model', m);
-    document.querySelectorAll('.ah-model-btn').forEach(function (b) {
-      b.classList.toggle('active', b.dataset.model === m);
-    });
+    setModelBtns();
     checkWarn();
-    toast('Switched to ' + (m === 'chatgpt' ? '🤖 ChatGPT' : '✨ Gemini'));
+    toast('Switched to ' + (m === 'chatgpt' ? '\uD83E\uDD16 ChatGPT' : '\u2728 Gemini'));
+  }
+
+  function setModelBtns() {
+    document.querySelectorAll('.ah-mbtn').forEach(function (b) {
+      b.classList.toggle('on', b.dataset.model === state.model);
+    });
   }
 
   /* ════════════════════════════════════════════════════════════
-     API KEY WARNING
+     WARN
   ════════════════════════════════════════════════════════════ */
 
   function checkWarn() {
-    const key      = state.model === 'chatgpt' ? state.settings.openaiKey : state.settings.geminiKey;
-    const provider = state.model === 'chatgpt' ? 'OpenAI' : 'Gemini';
+    var key  = state.model === 'chatgpt' ? state.cfg.openaiKey : state.cfg.geminiKey;
+    var prov = state.model === 'chatgpt' ? 'OpenAI' : 'Gemini';
     if (!key) {
       D.warn.classList.add('visible');
-      D.warn.querySelector('span').textContent = '\u26a0\ufe0f No ' + provider + ' API key.';
+      D.warn.querySelector('span').textContent = '\u26a0\ufe0f No ' + prov + ' API key.';
     } else {
       D.warn.classList.remove('visible');
     }
@@ -203,49 +184,64 @@ YOU ARE:
 
   function openSettings() {
     if ($('ah-overlay')) return;
-
-    const o = document.createElement('div');
+    var o = document.createElement('div');
     o.className = 'ah-overlay';
     o.id = 'ah-overlay';
+
+    /* Build Gemini model options — include newer models */
+    var gemOpts = [
+      ['gemini-2.0-flash-lite', 'Gemini 2.0 Flash Lite (Recommended)'],
+      ['gemini-2.5-flash',      'Gemini 2.5 Flash'],
+      ['gemini-2.5-pro',        'Gemini 2.5 Pro'],
+      ['gemini-1.5-flash-8b',   'Gemini 1.5 Flash-8B']
+    ].map(function (pair) {
+      return '<option value="' + pair[0] + '"' +
+        (state.cfg.geminiModel === pair[0] ? ' selected' : '') +
+        '>' + pair[1] + '</option>';
+    }).join('');
+
+    var gptOpts = [
+      ['gpt-4o',      'GPT-4o'],
+      ['gpt-4o-mini', 'GPT-4o Mini']
+    ].map(function (pair) {
+      return '<option value="' + pair[0] + '"' +
+        (state.cfg.openaiModel === pair[0] ? ' selected' : '') +
+        '>' + pair[1] + '</option>';
+    }).join('');
+
     o.innerHTML =
       '<div class="ah-modal">' +
-        '<div class="ah-modal-head">' +
-          '<div class="ah-modal-title">\u2699\ufe0f Settings</div>' +
-          '<button class="ah-modal-close" onclick="ahCloseSettings()">\u00d7</button>' +
+        '<div class="ah-mhead">' +
+          '<div class="ah-mtitle">\u2699\ufe0f Settings</div>' +
+          '<button class="ah-mclose" onclick="ahClose()">\u00d7</button>' +
         '</div>' +
 
-        '<div class="s-g">' +
-          '<div class="s-lbl">\uD83E\uDD16 OpenAI API Key</div>' +
-          '<input type="password" class="s-inp" id="s-oai-key" placeholder="sk-\u2026" value="' + esc(state.settings.openaiKey) + '"/>' +
-          '<div class="s-hint">Get yours at <a href="https://platform.openai.com/api-keys" target="_blank">platform.openai.com</a></div>' +
+        '<div class="sg">' +
+          '<div class="slbl">\u2728 Gemini API Key</div>' +
+          '<input type="password" class="sinp" id="s-gk" placeholder="AIza\u2026" value="' + esc(state.cfg.geminiKey) + '"/>' +
+          '<div class="shint">Get yours free at <a href="https://aistudio.google.com/app/apikey" target="_blank">aistudio.google.com</a></div>' +
         '</div>' +
-        '<div class="s-g">' +
-          '<div class="s-lbl">GPT Model</div>' +
-          '<select class="s-sel" id="s-oai-model">' +
-            '<option value="gpt-4o"' + (state.settings.openaiModel === 'gpt-4o' ? ' selected' : '') + '>GPT-4o (Recommended)</option>' +
-            '<option value="gpt-4o-mini"' + (state.settings.openaiModel === 'gpt-4o-mini' ? ' selected' : '') + '>GPT-4o Mini (Faster)</option>' +
-          '</select>' +
+        '<div class="sg">' +
+          '<div class="slbl">Gemini Model</div>' +
+          '<select class="ssel" id="s-gm">' + gemOpts + '</select>' +
+          '<div class="shint">If you see a model error, try a different option above.</div>' +
         '</div>' +
 
-        '<div class="s-div"></div>' +
+        '<div class="sdiv"></div>' +
 
-        '<div class="s-g">' +
-          '<div class="s-lbl">\u2728 Gemini API Key</div>' +
-          '<input type="password" class="s-inp" id="s-gem-key" placeholder="AIza\u2026" value="' + esc(state.settings.geminiKey) + '"/>' +
-          '<div class="s-hint">Get yours at <a href="https://aistudio.google.com/app/apikey" target="_blank">aistudio.google.com</a></div>' +
+        '<div class="sg">' +
+          '<div class="slbl">\uD83E\uDD16 OpenAI API Key (optional)</div>' +
+          '<input type="password" class="sinp" id="s-ok" placeholder="sk-\u2026" value="' + esc(state.cfg.openaiKey) + '"/>' +
+          '<div class="shint">Get yours at <a href="https://platform.openai.com/api-keys" target="_blank">platform.openai.com</a></div>' +
         '</div>' +
-        '<div class="s-g">' +
-          '<div class="s-lbl">Gemini Model</div>' +
-          '<select class="s-sel" id="s-gem-model">' +
-            '<option value="gemini-2.0-flash"' + (state.settings.geminiModel === 'gemini-2.0-flash' ? ' selected' : '') + '>Gemini 2.0 Flash</option>' +
-            '<option value="gemini-1.5-flash"' + (state.settings.geminiModel === 'gemini-1.5-flash' ? ' selected' : '') + '>Gemini 1.5 Flash</option>' +
-            '<option value="gemini-1.5-pro"'   + (state.settings.geminiModel === 'gemini-1.5-pro'   ? ' selected' : '') + '>Gemini 1.5 Pro</option>' +
-          '</select>' +
+        '<div class="sg">' +
+          '<div class="slbl">GPT Model</div>' +
+          '<select class="ssel" id="s-om">' + gptOpts + '</select>' +
         '</div>' +
 
-        '<div class="s-div"></div>' +
-        '<div class="s-note">\uD83D\uDD12 Keys are saved in your browser only. They are never sent anywhere except directly to OpenAI / Google.</div>' +
-        '<button class="s-save" onclick="ahSaveSettings()">Save</button>' +
+        '<div class="sdiv"></div>' +
+        '<div class="snote">\uD83D\uDD12 Keys stay in your browser only. Never sent anywhere except directly to Google / OpenAI.</div>' +
+        '<button class="ssave" onclick="ahSave()">Save</button>' +
       '</div>';
 
     o.addEventListener('click', function (e) { if (e.target === o) closeSettings(); });
@@ -257,114 +253,106 @@ YOU ARE:
     if (o) o.remove();
   }
 
-  function saveSettingsModal() {
-    state.settings.openaiKey   = $('s-oai-key').value.trim();
-    state.settings.geminiKey   = $('s-gem-key').value.trim();
-    state.settings.openaiModel = $('s-oai-model').value;
-    state.settings.geminiModel = $('s-gem-model').value;
-    saveSettings();
+  function saveSettings() {
+    state.cfg.geminiKey   = $('s-gk').value.trim();
+    state.cfg.geminiModel = $('s-gm').value;
+    state.cfg.openaiKey   = $('s-ok').value.trim();
+    state.cfg.openaiModel = $('s-om').value;
+    saveCfg();
     closeSettings();
     checkWarn();
     toast('\u2705 Saved!');
   }
 
   /* ════════════════════════════════════════════════════════════
-     WELCOME SCREEN
+     WELCOME
   ════════════════════════════════════════════════════════════ */
 
   function renderWelcome() {
     D.msgs.innerHTML = '';
-
     var el = document.createElement('div');
     el.className = 'ah-welcome';
     el.id = 'ah-welcome';
 
     var img = document.createElement('img');
-    img.className = 'ah-welcome-photo';
+    img.className = 'ah-w-photo';
     img.src = AVATAR;
     img.alt = 'Anitha';
 
     var name = document.createElement('div');
-    name.className = 'ah-welcome-name';
+    name.className = 'ah-w-name';
     name.textContent = 'Anitha';
 
     var line = document.createElement('div');
-    line.className = 'ah-welcome-line';
-    line.innerHTML = '\u0B89\u0B99\u0BCD\u0B95\u0BB3\u0BC1\u0B95\u0BCD\u0B95\u0BBE\u0B95 \u0B87\u0B99\u0BCD\u0B95\u0BC7 \u0B87\u0BB0\u0BC1\u0B95\u0BCD\u0B95\u0BBF\u0BB1\u0BC7\u0BA9\u0BCD\u0BA4\u0BC7.<br>Say something.';
+    line.className = 'ah-w-line';
+    line.innerHTML = '\u0b89\u0b99\u0bcd\u0b95\u0bb3\u0bc1\u0b95\u0bcd\u0b95\u0bbe\u0b95 \u0b87\u0b99\u0bcd\u0b95\u0bc7 \u0b87\u0bb0\u0bc1\u0b95\u0bcd\u0b95\u0bbf\u0bb1\u0bc7\u0ba9\u0bcd.<br>Say something.';
 
-    var startersDiv = document.createElement('div');
-    startersDiv.className = 'ah-starters';
+    var row = document.createElement('div');
+    row.className = 'ah-starters';
 
-    STARTERS.forEach(function (text) {
-      var btn = document.createElement('button');
-      btn.className = 'ah-starter';
-      btn.textContent = text;
-      btn.addEventListener('click', function () {
-        D.input.value = text;
-        handleSend();
-      });
-      startersDiv.appendChild(btn);
+    STARTERS.forEach(function (t) {
+      var b = document.createElement('button');
+      b.className = 'ah-start';
+      b.textContent = t;
+      b.addEventListener('click', function () { D.inp.value = t; send(); });
+      row.appendChild(b);
     });
 
     el.appendChild(img);
     el.appendChild(name);
     el.appendChild(line);
-    el.appendChild(startersDiv);
+    el.appendChild(row);
     D.msgs.appendChild(el);
   }
 
-  function removeWelcome() {
+  function rmWelcome() {
     var w = $('ah-welcome');
     if (w) w.remove();
   }
 
   /* ════════════════════════════════════════════════════════════
-     UI — MESSAGES
+     MESSAGE UI
   ════════════════════════════════════════════════════════════ */
 
-  function appendHimBubble(content) {
-    removeWelcome();
+  function addHim(text) {
+    rmWelcome();
     var ts   = Date.now();
     var time = new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-    var row = document.createElement('div');
-    row.className = 'ah-msg him';
+    var row  = document.createElement('div');
+    row.className = 'ah-row him';
     row.innerHTML =
-      '<div class="ah-msg-av-him">\uD83D\uDC64</div>' +
-      '<div class="ah-msg-body">' +
-        '<div class="ah-bubble">' + escHtml(content) + '</div>' +
+      '<div class="ah-av-him">\uD83D\uDC64</div>' +
+      '<div class="ah-body">' +
+        '<div class="ah-bub">' + esc2(text) + '</div>' +
         '<div class="ah-meta"><span>' + time + '</span></div>' +
       '</div>';
-
     D.msgs.appendChild(row);
     scrollDown();
   }
 
-  function appendHerBubble() {
-    // Returns the bubble element. Caller streams content into it.
+  function addHer() {
+    /* Returns the row element; caller streams into .ah-bub */
     var row = document.createElement('div');
-    row.className = 'ah-msg';
+    row.className = 'ah-row';
     row.innerHTML =
-      '<img class="ah-msg-av" src="' + AVATAR + '" alt="Anitha"/>' +
-      '<div class="ah-msg-body">' +
-        '<div class="ah-bubble"></div>' +
+      '<img class="ah-av" src="' + AVATAR + '" alt="Anitha"/>' +
+      '<div class="ah-body">' +
+        '<div class="ah-bub"></div>' +
         '<div class="ah-meta"></div>' +
       '</div>';
-
     D.msgs.appendChild(row);
     scrollDown();
-    return row;   // return full row so caller can access both bubble and meta
+    return row;
   }
 
-  function finaliseHerRow(row, content, model, ts) {
-    var bubble = row.querySelector('.ah-bubble');
-    var meta   = row.querySelector('.ah-meta');
-    var time   = new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    var cls    = model === 'chatgpt' ? 'gpt' : 'gemini';
-    var label  = model === 'chatgpt' ? 'GPT' : 'GEMINI';
-
-    bubble.innerHTML = fmt(content);
-    meta.innerHTML   = '<span class="ah-mtag ' + cls + '">' + label + '</span><span>' + time + '</span>';
+  function finalHer(row, content, model, ts) {
+    var bub  = row.querySelector('.ah-bub');
+    var meta = row.querySelector('.ah-meta');
+    var time = new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    var cls  = model === 'chatgpt' ? 'gpt' : 'gem';
+    var lbl  = model === 'chatgpt' ? 'GPT' : 'GEM';
+    bub.innerHTML  = fmt(content);
+    meta.innerHTML = '<span class="ah-tag ' + cls + '">' + lbl + '</span><span>' + time + '</span>';
   }
 
   function showTyping() {
@@ -372,11 +360,11 @@ YOU ARE:
     el.className = 'ah-typing';
     el.id = 'ah-typing';
     el.innerHTML =
-      '<img class="ah-msg-av" src="' + AVATAR + '" alt="Anitha"/>' +
-      '<div class="ah-typing-dots">' +
-        '<div class="ah-typing-dot"></div>' +
-        '<div class="ah-typing-dot"></div>' +
-        '<div class="ah-typing-dot"></div>' +
+      '<img class="ah-av" src="' + AVATAR + '" alt="Anitha"/>' +
+      '<div class="ah-dots">' +
+        '<div class="ah-dot-b"></div>' +
+        '<div class="ah-dot-b"></div>' +
+        '<div class="ah-dot-b"></div>' +
       '</div>';
     D.msgs.appendChild(el);
     scrollDown();
@@ -402,7 +390,7 @@ YOU ARE:
   }
 
   /* ════════════════════════════════════════════════════════════
-     TEXT FORMAT
+     FORMAT
   ════════════════════════════════════════════════════════════ */
 
   function escHtml(t) {
@@ -412,23 +400,16 @@ YOU ARE:
       .replace(/>/g, '&gt;');
   }
 
-  function esc(t) {
-    // For inserting into HTML attribute values
-    return escHtml(t).replace(/"/g, '&quot;');
-  }
+  function esc(t)  { return escHtml(t).replace(/"/g, '&quot;'); }   /* for attributes */
+  function esc2(t) { return escHtml(t).replace(/\n/g, '<br>'); }    /* for his message */
 
   function fmt(text) {
     if (!text) return '';
     var s = escHtml(text);
-    // Code blocks
     s = s.replace(/```[\w]*\n?([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
-    // Inline code
     s = s.replace(/`([^`\n]+)`/g, '<code>$1</code>');
-    // Bold
     s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-    // Italic
     s = s.replace(/\*([^*\n]+)\*/g, '<em>$1</em>');
-    // Line breaks
     s = s.replace(/\n/g, '<br>');
     return s;
   }
@@ -449,179 +430,148 @@ YOU ARE:
     toast('Cleared.');
   }
 
-  async function handleSend() {
-    var text = D.input.value.trim();
+  async function send() {
+    var text = D.inp.value.trim();
     if (!text || state.streaming) return;
 
-    var key = state.model === 'chatgpt' ? state.settings.openaiKey : state.settings.geminiKey;
-    if (!key) { toast('\u26a0\ufe0f Add API key in Settings first'); openSettings(); return; }
+    var key = state.model === 'chatgpt' ? state.cfg.openaiKey : state.cfg.geminiKey;
+    if (!key) { toast('\u26a0\ufe0f Add API key in Settings'); openSettings(); return; }
 
-    D.input.value = '';
-    D.input.style.height = 'auto';
+    D.inp.value = '';
+    D.inp.style.height = 'auto';
 
     if (state.abort) state.abort.abort();
     state.abort = new AbortController();
 
-    // Add user message
-    var userMsg = { role: 'user', content: text, ts: Date.now() };
-    state.messages.push(userMsg);
-    appendHimBubble(text);
+    var uMsg = { role: 'user', content: text, ts: Date.now() };
+    state.messages.push(uMsg);
+    addHim(text);
 
-    // Begin streaming
-    state.streaming   = true;
-    D.sendBtn.disabled = true;
-    D.stopBtn.classList.add('on');
+    state.streaming = true;
+    D.send.disabled = true;
+    D.stop.classList.add('on');
     showTyping();
 
-    var aiMsg = { role: 'assistant', content: '', model: state.model, ts: Date.now() };
+    var aMsg = { role: 'assistant', content: '', model: state.model, ts: Date.now() };
 
     try {
-      await sleep(300);
+      await sleep(280);
       hideTyping();
+      state.messages.push(aMsg);
 
-      state.messages.push(aiMsg);
-      var row      = appendHerBubble();
-      var bubbleEl = row.querySelector('.ah-bubble');
+      var row = addHer();
+      var bub = row.querySelector('.ah-bub');
 
-      var stream = state.model === 'chatgpt'
-        ? gptStream(state.abort.signal)
-        : geminiStream(state.abort.signal);
+      var stream = state.model === 'chatgpt' ? gptStream(state.abort.signal) : gemStream(state.abort.signal);
 
       var full = '';
       for await (var chunk of stream) {
         full += chunk;
-        aiMsg.content = full;
-        bubbleEl.innerHTML = fmt(full) + '<span class="ah-cur">\u258c</span>';
+        aMsg.content = full;
+        bub.innerHTML = fmt(full) + '<span class="ah-cur">\u258c</span>';
         scrollDown();
       }
 
-      aiMsg.content = full || '\u2026';
-      finaliseHerRow(row, aiMsg.content, aiMsg.model, aiMsg.ts);
+      aMsg.content = full || '\u2026';
+      finalHer(row, aMsg.content, aMsg.model, aMsg.ts);
       scrollDown();
 
     } catch (err) {
       hideTyping();
 
       if (err.name === 'AbortError') {
-        // Finalise whatever we have
-        if (aiMsg.content) {
-          var lastRow = D.msgs.querySelector('.ah-msg:not(.him):last-child');
-          if (lastRow) {
-            finaliseHerRow(lastRow, aiMsg.content, aiMsg.model, aiMsg.ts);
-          }
+        if (aMsg.content) {
+          var lastRow = D.msgs.querySelector('.ah-row:not(.him):last-child');
+          if (lastRow) finalHer(lastRow, aMsg.content, aMsg.model, aMsg.ts);
         } else {
-          // Nothing streamed — remove the empty bubble
-          var emptyRow = D.msgs.querySelector('.ah-msg:not(.him):last-child');
+          var emptyRow = D.msgs.querySelector('.ah-row:not(.him):last-child');
           if (emptyRow) emptyRow.remove();
-          var idx = state.messages.indexOf(aiMsg);
+          var idx = state.messages.indexOf(aMsg);
           if (idx > -1) state.messages.splice(idx, 1);
         }
       } else {
-        // API error — show it
-        var idx2 = state.messages.indexOf(aiMsg);
-        if (idx2 > -1 && !aiMsg.content) state.messages.splice(idx2, 1);
-
-        var errMsg = {
-          role: 'assistant',
-          content: '\u26a0\ufe0f ' + (err.message || 'Something went wrong. Check your API key.'),
-          model: state.model,
-          ts: Date.now()
-        };
-        state.messages.push(errMsg);
-        var eRow    = appendHerBubble();
-        var eBubble = eRow.querySelector('.ah-bubble');
-        eBubble.textContent = errMsg.content;
+        var idx2 = state.messages.indexOf(aMsg);
+        if (idx2 > -1 && !aMsg.content) state.messages.splice(idx2, 1);
+        var errRow = addHer();
+        errRow.querySelector('.ah-bub').textContent = '\u26a0\ufe0f ' + (err.message || 'Something went wrong. Check your API key and model name in Settings.');
       }
     } finally {
-      state.streaming    = false;
-      state.abort        = null;
-      D.sendBtn.disabled = false;
-      D.stopBtn.classList.remove('on');
+      state.streaming = false;
+      state.abort     = null;
+      D.send.disabled = false;
+      D.stop.classList.remove('on');
     }
   }
 
   /* ════════════════════════════════════════════════════════════
-     HISTORY BUILDERS
+     HISTORY
   ════════════════════════════════════════════════════════════ */
 
-  function oaiHistory() {
-    var sp   = buildSystemPrompt();
-    var msgs = [{ role: 'system', content: sp }];
+  function oaiHist() {
+    var msgs = [{ role: 'system', content: buildPrompt() }];
     state.messages.slice(-30).forEach(function (m) {
       msgs.push({ role: m.role === 'user' ? 'user' : 'assistant', content: m.content });
     });
     return msgs;
   }
 
-  function geminiContents() {
+  function gemContents() {
     return state.messages.slice(-30).map(function (m) {
       return { role: m.role === 'user' ? 'user' : 'model', parts: [{ text: m.content }] };
     });
   }
 
   /* ════════════════════════════════════════════════════════════
-     API — OpenAI streaming
+     OPENAI STREAM
   ════════════════════════════════════════════════════════════ */
 
   async function* gptStream(signal) {
     var res = await fetch('https://api.openai.com/v1/chat/completions', {
-      method:  'POST',
-      headers: {
-        'Content-Type':  'application/json',
-        'Authorization': 'Bearer ' + state.settings.openaiKey
-      },
-      body: JSON.stringify({
-        model:       state.settings.openaiModel,
-        messages:    oaiHistory(),
-        stream:      true,
-        max_tokens:  1000,
-        temperature: 0.88
-      }),
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + state.cfg.openaiKey },
+      body: JSON.stringify({ model: state.cfg.openaiModel, messages: oaiHist(), stream: true, max_tokens: 1000, temperature: 0.88 }),
       signal: signal
     });
-
     if (!res.ok) {
       var e = await res.json().catch(function () { return {}; });
       throw new Error((e && e.error && e.error.message) || 'OpenAI error ' + res.status);
     }
-
-    var reader  = res.body.getReader();
-    var decoder = new TextDecoder();
-
+    var reader = res.body.getReader();
+    var dec    = new TextDecoder();
     while (true) {
-      var chunk = await reader.read();
-      if (chunk.done) break;
-
-      var lines = decoder.decode(chunk.value, { stream: true }).split('\n');
+      var c = await reader.read();
+      if (c.done) break;
+      var lines = dec.decode(c.value, { stream: true }).split('\n');
       for (var i = 0; i < lines.length; i++) {
         var line = lines[i];
         if (!line.startsWith('data: ')) continue;
         var d = line.slice(6).trim();
         if (d === '[DONE]') return;
         try {
-          var parsed = JSON.parse(d);
-          var delta  = parsed.choices && parsed.choices[0] && parsed.choices[0].delta && parsed.choices[0].delta.content;
-          if (delta) yield delta;
+          var p = JSON.parse(d);
+          var t = p.choices && p.choices[0] && p.choices[0].delta && p.choices[0].delta.content;
+          if (t) yield t;
         } catch (_) {}
       }
     }
   }
 
   /* ════════════════════════════════════════════════════════════
-     API — Gemini streaming
+     GEMINI STREAM
   ════════════════════════════════════════════════════════════ */
 
-  async function* geminiStream(signal) {
-    var model = state.settings.geminiModel;
-    var url   = 'https://generativelanguage.googleapis.com/v1beta/models/' +
-                model + ':streamGenerateContent?key=' + state.settings.geminiKey + '&alt=sse';
+  async function* gemStream(signal) {
+    var model = state.cfg.geminiModel;
+    /* Use v1beta for systemInstruction support */
+    var url = 'https://generativelanguage.googleapis.com/v1beta/models/' +
+              model + ':streamGenerateContent?key=' + state.cfg.geminiKey + '&alt=sse';
 
     var res = await fetch(url, {
-      method:  'POST',
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        contents: geminiContents(),
-        systemInstruction: { parts: [{ text: buildSystemPrompt() }] },
+        contents: gemContents(),
+        systemInstruction: { parts: [{ text: buildPrompt() }] },
         generationConfig:  { maxOutputTokens: 1000, temperature: 0.88 }
       }),
       signal: signal
@@ -629,32 +579,29 @@ YOU ARE:
 
     if (!res.ok) {
       var e = await res.json().catch(function () { return {}; });
-      throw new Error((e && e.error && e.error.message) || 'Gemini error ' + res.status);
+      /* Surface the model name in the error so the user knows what to change */
+      var msg = (e && e.error && e.error.message) || ('Gemini error ' + res.status);
+      throw new Error(msg);
     }
 
-    var reader  = res.body.getReader();
-    var decoder = new TextDecoder();
-    var buf     = '';
+    var reader = res.body.getReader();
+    var dec    = new TextDecoder();
+    var buf    = '';
 
     while (true) {
-      var chunk = await reader.read();
-      if (chunk.done) break;
-
-      buf += decoder.decode(chunk.value, { stream: true });
+      var c = await reader.read();
+      if (c.done) break;
+      buf += dec.decode(c.value, { stream: true });
       var lines = buf.split('\n');
       buf = lines.pop() || '';
-
       for (var i = 0; i < lines.length; i++) {
         var line = lines[i];
         if (!line.startsWith('data: ')) continue;
         try {
-          var parsed = JSON.parse(line.slice(6));
-          var text   = parsed.candidates &&
-                       parsed.candidates[0] &&
-                       parsed.candidates[0].content &&
-                       parsed.candidates[0].content.parts &&
-                       parsed.candidates[0].content.parts[0] &&
-                       parsed.candidates[0].content.parts[0].text;
+          var p    = JSON.parse(line.slice(6));
+          var text = p.candidates && p.candidates[0] && p.candidates[0].content &&
+                     p.candidates[0].content.parts && p.candidates[0].content.parts[0] &&
+                     p.candidates[0].content.parts[0].text;
           if (text) yield text;
         } catch (_) {}
       }
@@ -668,14 +615,14 @@ YOU ARE:
   function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
 
   /* ════════════════════════════════════════════════════════════
-     GLOBAL EXPORTS  (used in HTML onclick attributes)
+     GLOBAL EXPORTS
   ════════════════════════════════════════════════════════════ */
 
-  window.ahSwitchModel   = switchModel;
-  window.ahOpenSettings  = openSettings;
-  window.ahCloseSettings = closeSettings;
-  window.ahSaveSettings  = saveSettingsModal;
-  window.ahClearChat     = clearChat;
+  window.ahSwitch = switchModel;
+  window.ahOpen   = openSettings;
+  window.ahClose  = closeSettings;
+  window.ahSave   = saveSettings;
+  window.ahClear  = clearChat;
 
   /* ════════════════════════════════════════════════════════════
      BOOT
